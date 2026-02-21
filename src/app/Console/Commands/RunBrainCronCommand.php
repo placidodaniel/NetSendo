@@ -176,6 +176,16 @@ class RunBrainCronCommand extends Command
             $this->warn("[Brain CRON] User #{$user->id}: Calendar generation failed: {$e->getMessage()}");
         }
 
+        // Step 2.7: Continue active goals — execute next sub-plans
+        try {
+            $cronResults['goals_continued'] = $this->continueActiveGoals($orchestrator, $user, $settings);
+            if (!empty($cronResults['goals_continued'])) {
+                $this->info("[Brain CRON] User #{$user->id}: Continued " . count($cronResults['goals_continued']) . " goal(s).");
+            }
+        } catch (\Exception $e) {
+            $this->warn("[Brain CRON] User #{$user->id}: Goal continuation failed: {$e->getMessage()}");
+        }
+
         // Step 3: Convert AI priorities to executable tasks
         $aiTasks = [];
         if ($analysisReport && !empty($analysisReport['priorities'])) {
@@ -607,6 +617,199 @@ class RunBrainCronCommand extends Command
     }
 
     /**
+     * Continue active goals by executing their next sub-plans.
+     * Max 2 goals per cycle to avoid blocking the CRON run.
+     */
+    private function continueActiveGoals(
+        AgentOrchestrator $orchestrator,
+        User $user,
+        AiBrainSettings $settings,
+    ): array {
+        $continued = [];
+        $goalPlanner = app(GoalPlanner::class);
+
+        try {
+            $activeGoals = AiGoal::forUser($user->id)
+                ->active()
+                ->orderBy('priority', 'desc')
+                ->take(2)
+                ->get();
+        } catch (\Exception $e) {
+            return []; // ai_goals table may not exist
+        }
+
+        foreach ($activeGoals as $goal) {
+            // Refresh progress first
+            $goal->updateProgress();
+            $goal->refresh();
+
+            // Skip if goal auto-completed during updateProgress
+            if ($goal->status === 'completed') {
+                $this->sendGoalCompletionReport($settings, $user, $goal);
+                $continued[] = [
+                    'title' => $goal->title,
+                    'status' => 'completed',
+                    'progress' => 100,
+                ];
+                continue;
+            }
+
+            // Get the next action for this goal
+            $nextAction = $goalPlanner->getNextAction($goal);
+
+            if (!$nextAction) {
+                continue; // No pending sub-plans
+            }
+
+            $agentName = $nextAction['agent'] ?? null;
+            if (!$agentName) {
+                continue;
+            }
+
+            $this->line("[Brain CRON]   🎯 Goal '{$goal->title}': continuing with '{$nextAction['title']}'");
+
+            try {
+                $task = [
+                    'id' => 'goal_' . $goal->id . '_' . md5($nextAction['intent'] ?? ''),
+                    'category' => 'goal_continuation',
+                    'icon' => '🎯',
+                    'title' => $nextAction['title'] ?? $nextAction['intent'] ?? 'Goal sub-plan',
+                    'description' => $nextAction['description'] ?? '',
+                    'priority' => $goal->priority,
+                    'action' => $nextAction['intent'] ?? $nextAction['description'] ?? $nextAction['title'] ?? '',
+                    'agent' => $agentName,
+                    'parameters' => [
+                        'goal_id' => $goal->id,
+                        'goal_title' => $goal->title,
+                    ],
+                ];
+
+                if ($settings->work_mode === ModeController::MODE_AUTONOMOUS) {
+                    $result = $orchestrator->executeCronTask($task, $user);
+                    $status = ($result['type'] ?? '') === 'error' ? 'error' : 'in_progress';
+
+                    AiBrainActivityLog::logEvent($user->id, 'goal_sub_plan_executed', $status, $agentName, [
+                        'goal_id' => $goal->id,
+                        'task_title' => $task['title'],
+                    ]);
+                } elseif ($settings->work_mode === ModeController::MODE_SEMI_AUTO) {
+                    // Route through semi-auto approval path
+                    $agents = $orchestrator->getAgents();
+                    $agent = $agents[$agentName] ?? null;
+
+                    if ($agent) {
+                        $autoContext = $orchestrator->gatherAutoContext($user, $agentName);
+                        $intent = [
+                            'requires_agent' => true,
+                            'agent' => $agentName,
+                            'intent' => $task['action'],
+                            'task_type' => $agentName,
+                            'confidence' => 1.0,
+                            'channel' => 'cron',
+                            'has_user_details' => true,
+                            'parameters' => array_merge(
+                                $task['parameters'],
+                                ['auto_context' => $autoContext, 'cron_task' => true],
+                            ),
+                        ];
+
+                        $knowledgeContext = app(KnowledgeBaseService::class)->getContext($user, $agentName);
+                        $plan = $agent->plan($intent, $user, $knowledgeContext);
+
+                        if ($plan) {
+                            $plan->update([
+                                'status' => 'pending_approval',
+                                'ai_goal_id' => $goal->id,
+                            ]);
+
+                            $approval = AiPendingApproval::create([
+                                'ai_action_plan_id' => $plan->id,
+                                'user_id' => $user->id,
+                                'channel' => 'telegram',
+                                'status' => 'pending',
+                                'summary' => "🎯 Goal: {$goal->title}\n📋 {$plan->title}\n{$plan->description}",
+                                'expires_at' => now()->addHours(24),
+                            ]);
+
+                            $this->sendTaskApprovalToTelegram($settings, $user, $plan, $approval, $task);
+                            $status = 'pending_approval';
+                        }
+                    }
+
+                    $status = $status ?? 'skipped';
+                }
+
+                // Refresh goal after executing
+                $goal->updateProgress();
+                $goal->refresh();
+
+                $continued[] = [
+                    'title' => $goal->title,
+                    'status' => $goal->status === 'completed' ? 'completed' : 'in_progress',
+                    'progress' => $goal->progress_percent,
+                ];
+
+                // If goal just completed after this sub-plan
+                if ($goal->status === 'completed') {
+                    $this->sendGoalCompletionReport($settings, $user, $goal);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Goal continuation failed for goal', [
+                    'goal_id' => $goal->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $goalPlanner->handlePlanFailure(
+                    $goal->plans()->latest()->first() ?? new AiActionPlan(),
+                    $e->getMessage(),
+                    $user
+                );
+            }
+        }
+
+        return $continued;
+    }
+
+    /**
+     * Send goal completion report via Telegram.
+     */
+    private function sendGoalCompletionReport(AiBrainSettings $settings, User $user, AiGoal $goal): void
+    {
+        if (!$settings->isTelegramConnected() || empty($settings->telegram_chat_id)) {
+            return;
+        }
+
+        try {
+            $telegram = app(TelegramBotService::class);
+
+            $message = "🏆 *" . __('brain.goals.completed_report', [
+                'title' => $goal->title,
+                'count' => $goal->completed_plans,
+            ]) . "*\n\n";
+
+            // List all completed plans
+            $plans = $goal->plans()->where('status', 'completed')->get();
+            foreach ($plans as $plan) {
+                $message .= "  ✅ {$plan->title}\n";
+            }
+
+            $message .= "\n📊 " . __('brain.goals.progress_bar', [
+                'percent' => 100,
+                'completed' => $goal->completed_plans,
+                'total' => $goal->total_plans,
+            ]);
+
+            $telegram->sendMessage($settings->telegram_chat_id, $message);
+        } catch (\Exception $e) {
+            Log::warning('Goal completion Telegram report failed', [
+                'user_id' => $user->id,
+                'goal_id' => $goal->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Send a single task approval request to Telegram with inline buttons.
      */
     private function sendTaskApprovalToTelegram(
@@ -717,6 +920,17 @@ class RunBrainCronCommand extends Command
             // Report knowledge enrichment
             if ($cronResults['knowledge_saved'] ?? false) {
                 $lines[] = "📚 " . __('brain.monitor.kb_enriched');
+            }
+
+            // Report goal continuations
+            $goalsContinued = $cronResults['goals_continued'] ?? [];
+            if (!empty($goalsContinued)) {
+                $lines[] = "🎯 *" . __('brain.monitor.goals_continued', ['count' => count($goalsContinued)]) . "*";
+                foreach ($goalsContinued as $gc) {
+                    $icon = ($gc['status'] === 'completed') ? '✅' : '▶️';
+                    $lines[] = "  {$icon} {$gc['title']} ({$gc['progress']}%)";
+                }
+                $lines[] = "";
             }
 
             // Report tasks

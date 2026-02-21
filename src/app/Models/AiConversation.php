@@ -115,8 +115,9 @@ class AiConversation extends Model
             ->orderByDesc('last_activity_at')
             ->first();
 
-        // Create new if none exists or last message was > 30 min ago
-        if (!$conversation || ($conversation->last_activity_at && $conversation->last_activity_at->lt(now()->subMinutes(30)))) {
+        // Create new if none exists or last message was > 2 hours ago
+        // (increased from 30 min — short timeouts caused context loss during natural conversation pauses)
+        if (!$conversation || ($conversation->last_activity_at && $conversation->last_activity_at->lt(now()->subMinutes(120)))) {
             $conversation = static::create([
                 'user_id' => $userId,
                 'channel' => $channel,

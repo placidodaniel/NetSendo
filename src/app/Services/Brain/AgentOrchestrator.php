@@ -144,47 +144,71 @@ class AgentOrchestrator
                 $intent['has_user_details'] = true;
                 $result = $this->handleAgentRequest($intent, $user, $conversation, $channel, $knowledgeContext);
             } else {
-                // Step 1: Check if this is a high-level goal
-                // Wrapped in try-catch: ai_goals table may not exist if migration hasn't been run
-                $goalData = null;
-                try {
-                    $goalData = $this->goalPlanner->isGoalRequest($message, $user);
-                } catch (\Exception $e) {
-                    Log::debug('Goal detection skipped (table may not exist)', ['error' => $e->getMessage()]);
-                }
-
-                if ($goalData) {
-                    try {
-                        // Create persistent goal and decompose
-                        $result = $this->handleGoalRequest($goalData, $user, $conversation);
-                    } catch (\Exception $e) {
-                        Log::warning('Goal handling failed, falling back to intent classification', ['error' => $e->getMessage()]);
-                        $goalData = null; // Fall through to normal flow
+                // Step 0.5: Pre-check for situation_analysis keywords (deterministic, bypasses AI classification)
+                // This ensures well-known analysis requests always go to SituationAnalyzer
+                // instead of being misclassified by AI as general conversation.
+                $lowerMessage = mb_strtolower($message);
+                $situationKeywords = [
+                    'przeanalizuj sytuacj', 'przeanalizuj obecn', 'analiza sytuacji',
+                    'obecną sytuacj', 'obecny stan', 'podsumuj stan', 'co jest nie tak',
+                    'analyze situation', 'current state', 'analyze current',
+                    'situation analysis', 'give me an overview', 'marketing audit',
+                    'co poprawi', 'jak wyglada sytuacja', 'jak wygląda sytuacja',
+                    'jaki jest stan', 'podsumuj sytuacj', 'ocen sytuacj', 'oceń sytuacj',
+                ];
+                $isSituationAnalysis = false;
+                foreach ($situationKeywords as $keyword) {
+                    if (mb_strpos($lowerMessage, $keyword) !== false) {
+                        $isSituationAnalysis = true;
+                        break;
                     }
                 }
 
-                if (!$goalData) {
-                    // Step 2: Classify intent
-                    $intent = $this->classifyIntent($message, $conversation, $user);
+                if ($isSituationAnalysis) {
+                    $result = $this->handleSituationAnalysis($user, $conversation, $settings);
+                } else {
+                    // Step 1: Check if this is a high-level goal
+                    // Wrapped in try-catch: ai_goals table may not exist if migration hasn't been run
+                    $goalData = null;
+                    try {
+                        $goalData = $this->goalPlanner->isGoalRequest($message, $user);
+                    } catch (\Exception $e) {
+                        Log::debug('Goal detection skipped (table may not exist)', ['error' => $e->getMessage()]);
+                    }
 
-                    // Step 2.5: Handle situation_analysis intent via SituationAnalyzer
-                    if (($intent['task_type'] ?? '') === 'situation_analysis') {
-                        $result = $this->handleSituationAnalysis($user, $conversation, $settings);
-                    } else {
-                        // Step 3: Get knowledge context for this intent
-                        $knowledgeContext = $this->knowledgeBase->getContext($user, $intent['task_type'] ?? 'general');
-
-                        // Inject active goal context
-                        $goalsContext = $this->goalPlanner->getActiveGoalsContext($user);
-                        if ($goalsContext) {
-                            $knowledgeContext .= $goalsContext;
+                    if ($goalData) {
+                        try {
+                            // Create persistent goal and decompose
+                            $result = $this->handleGoalRequest($goalData, $user, $conversation);
+                        } catch (\Exception $e) {
+                            Log::warning('Goal handling failed, falling back to intent classification', ['error' => $e->getMessage()]);
+                            $goalData = null; // Fall through to normal flow
                         }
+                    }
 
-                        // Step 4: Route to appropriate agent or handle as conversation
-                        if ($intent['requires_agent']) {
-                            $result = $this->handleAgentRequest($intent, $user, $conversation, $channel, $knowledgeContext);
+                    if (!$goalData) {
+                        // Step 2: Classify intent
+                        $intent = $this->classifyIntent($message, $conversation, $user);
+
+                        // Step 2.5: Handle situation_analysis intent via SituationAnalyzer
+                        if (($intent['task_type'] ?? '') === 'situation_analysis') {
+                            $result = $this->handleSituationAnalysis($user, $conversation, $settings);
                         } else {
-                            $result = $this->handleConversation($message, $user, $conversation, $knowledgeContext, $integration, $settings->preferred_model);
+                            // Step 3: Get knowledge context for this intent
+                            $knowledgeContext = $this->knowledgeBase->getContext($user, $intent['task_type'] ?? 'general');
+
+                            // Inject active goal context
+                            $goalsContext = $this->goalPlanner->getActiveGoalsContext($user);
+                            if ($goalsContext) {
+                                $knowledgeContext .= $goalsContext;
+                            }
+
+                            // Step 4: Route to appropriate agent or handle as conversation
+                            if ($intent['requires_agent']) {
+                                $result = $this->handleAgentRequest($intent, $user, $conversation, $channel, $knowledgeContext);
+                            } else {
+                                $result = $this->handleConversation($message, $user, $conversation, $knowledgeContext, $integration, $settings->preferred_model);
+                            }
                         }
                     }
                 }
@@ -295,7 +319,7 @@ class AgentOrchestrator
         }
 
         // Build intent classification prompt
-        $recentContext = $conversation->getRecentMessages(5)
+        $recentContext = $conversation->getRecentMessages(10)
             ->map(fn($m) => "{$m->role}: {$m->content}")
             ->join("\n");
 
@@ -350,6 +374,13 @@ Respond in JSON:
 Set requires_agent=false for general questions, conversations, greetings.
 Set requires_agent=true when the user wants to PERFORM a specific action (e.g. create a campaign, research a topic, analyze competitors, etc.)
 Set task_type="situation_analysis" (and requires_agent=false) when user asks for a holistic situation review, current state analysis, or overall assessment of their marketing/CRM situation (e.g. "przeanalizuj obecną sytuację", "analyze current situation", "co jest nie tak", "what should I do", "podsumuj stan", "give me an overview").
+
+CRITICAL — CONTINUATION DETECTION:
+If the recent conversation context shows the assistant just asked the user questions (like choices, preferences, details, or numbered options),
+and the user message appears to be an ANSWER to those questions (e.g. numbered responses, short answers, selections like "1", "B", "yes", "poniedziałek", etc.),
+then set requires_agent=false, intent="follow_up_answer" and task_type="general". This is a follow-up reply, NOT a new action request.
+Examples of follow-up answers: "1 Biznesowy 2 B 3 poniedziałek", "business tone", "yes", "the second option", "lista B", "tak, wyślij", etc.
+NEVER re-classify a follow-up answer as requiring an agent — the conversation handler will use the full history to generate a contextual response.
 PROMPT;
 
         try {
@@ -405,6 +436,22 @@ PROMPT;
         // In manual mode, just provide advice without creating an action plan
         if ($settings->work_mode === ModeController::MODE_MANUAL) {
             return $agent->advise($intent, $user, $knowledgeContext);
+        }
+
+        // Check if conversation already has rich campaign/agent context
+        // (prevents re-asking questions when the Brain already discussed a plan)
+        $recentMsgs = $conversation->getRecentMessages(10);
+        $hasRichContext = $recentMsgs->contains(function ($msg) {
+            return $msg->role === 'assistant'
+                && (str_contains($msg->content, 'kampani')
+                    || str_contains($msg->content, 'campaign')
+                    || str_contains($msg->content, 'E-mail 1')
+                    || str_contains($msg->content, '📧')
+                    || str_contains($msg->content, 'Struktura kampanii')
+                    || str_contains($msg->content, 'Projekt kampanii'));
+        });
+        if ($hasRichContext) {
+            $intent['parameters']['conversation_has_campaign_context'] = true;
         }
 
         // Info-gathering phase: ask for details before creating a plan
@@ -524,9 +571,20 @@ PROMPT;
                 Log::debug('Style extraction skipped', ['error' => $e->getMessage()]);
             }
 
+            // Post-execution: evaluate goal continuation
+            $continuationMessage = '';
+            try {
+                $continuation = $this->evaluatePostExecution($plan, $user);
+                if ($continuation) {
+                    $continuationMessage = "\n\n" . ($continuation['message'] ?? '');
+                }
+            } catch (\Exception $e) {
+                Log::debug('Post-execution evaluation skipped', ['error' => $e->getMessage()]);
+            }
+
             return [
                 'type' => 'execution_result',
-                'message' => $result['message'] ?? __('brain.plan_executed'),
+                'message' => ($result['message'] ?? __('brain.plan_executed')) . $continuationMessage,
                 'plan_id' => $plan->id,
                 'tokens_input' => $result['tokens_input'] ?? 0,
                 'tokens_output' => $result['tokens_output'] ?? 0,
@@ -535,11 +593,102 @@ PROMPT;
         } catch (\Exception $e) {
             $plan->markFailed(['error' => $e->getMessage()]);
 
+            // Handle goal-aware failure recovery
+            $failureMessage = '';
+            try {
+                $failureResult = $this->goalPlanner->handlePlanFailure($plan, $e->getMessage(), $user);
+                AiBrainActivityLog::logEvent($user->id, 'plan_failure_handled', $failureResult['action'], $agentName, [
+                    'plan_id' => $plan->id,
+                    'action' => $failureResult['action'],
+                ]);
+                $failureMessage = "\n\n" . ($failureResult['message'] ?? '');
+            } catch (\Exception $goalEx) {
+                Log::debug('Goal failure handling skipped', ['error' => $goalEx->getMessage()]);
+            }
+
             return [
                 'type' => 'error',
-                'message' => __('brain.plan_execution_error', ['error' => $e->getMessage()]),
+                'message' => __('brain.plan_execution_error', ['error' => $e->getMessage()]) . $failureMessage,
                 'plan_id' => $plan->id,
             ];
+        }
+    }
+
+    /**
+     * Evaluate post-execution: check goal progress and determine continuation.
+     *
+     * After an agent completes a plan, this method:
+     *  1. Updates the related goal's progress
+     *  2. If goal is fully completed — returns a completion report
+     *  3. If goal has remaining sub-plans — reports what's next (CRON will pick it up)
+     *  4. For standalone plans (no goal) — returns null
+     */
+    protected function evaluatePostExecution(AiActionPlan $plan, User $user): ?array
+    {
+        // Only process plans linked to a goal
+        if (!$plan->ai_goal_id) {
+            return null;
+        }
+
+        try {
+            $goal = AiGoal::find($plan->ai_goal_id);
+            if (!$goal) {
+                return null;
+            }
+
+            // Refresh goal progress based on all linked plans
+            $goal->updateProgress();
+            $goal->refresh();
+
+            // Log goal progress event
+            AiBrainActivityLog::logEvent($user->id, 'goal_progress', 'completed', null, [
+                'goal_id' => $goal->id,
+                'goal_title' => $goal->title,
+                'progress' => $goal->progress_percent,
+                'completed_plans' => $goal->completed_plans,
+                'total_plans' => $goal->total_plans,
+            ]);
+
+            // Goal completed — generate completion report
+            if ($goal->status === 'completed') {
+                AiBrainActivityLog::logEvent($user->id, 'goal_completed', 'completed', null, [
+                    'goal_id' => $goal->id,
+                    'title' => $goal->title,
+                ]);
+
+                return [
+                    'type' => 'goal_completed',
+                    'message' => __('brain.goals.completed_report', [
+                        'title' => $goal->title,
+                        'count' => $goal->completed_plans,
+                    ]),
+                    'goal_id' => $goal->id,
+                ];
+            }
+
+            // Goal still in progress — check what's next
+            $nextAction = $this->goalPlanner->getNextAction($goal);
+
+            if ($nextAction) {
+                return [
+                    'type' => 'goal_continuation',
+                    'message' => __('brain.goals.continued_next_plan', [
+                        'plan' => $nextAction['title'] ?? $nextAction['intent'] ?? '',
+                    ]),
+                    'goal_id' => $goal->id,
+                    'next_action' => $nextAction,
+                    'progress' => $goal->progress_percent,
+                ];
+            }
+
+            // No next action available (all decomposed, but maybe needs re-decomposition)
+            return null;
+        } catch (\Exception $e) {
+            Log::debug('evaluatePostExecution failed', [
+                'plan_id' => $plan->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
         }
     }
 
@@ -743,24 +892,45 @@ PROMPT;
             $conversation = $this->conversationManager->getConversation($user, $channel);
         }
 
-        // Save user message
-        $this->conversationManager->addUserMessage($conversation, $message);
+        // DO NOT save user message here!
+        // If this method returns null (non-streamable), the caller falls back to processMessage()
+        // which saves the message itself. Saving here would create DUPLICATES.
 
         // Check for pending agent or classify intent
         $context = $conversation->context ?? [];
         $pendingAgent = $context['pending_agent'] ?? null;
 
         if ($pendingAgent && isset($this->agents[$pendingAgent])) {
-            return null; // Agent flow — not streamable
+            return null; // Agent flow — not streamable, processMessage will handle
         }
 
+        // Classify intent using message text (it's already passed as $message param, no need for DB)
         $intent = $this->classifyIntent($message, $conversation, $user);
 
+        // Check for situation_analysis keywords (same pre-check as processMessage)
+        $lowerMessage = mb_strtolower($message);
+        $situationKeywords = [
+            'przeanalizuj sytuacj', 'przeanalizuj obecn', 'analiza sytuacji',
+            'obecną sytuacj', 'obecny stan', 'podsumuj stan', 'co jest nie tak',
+            'analyze situation', 'current state', 'analyze current',
+            'situation analysis', 'give me an overview', 'marketing audit',
+            'co poprawi', 'jak wyglada sytuacja', 'jak wygląda sytuacja',
+            'jaki jest stan', 'podsumuj sytuacj', 'ocen sytuacj', 'oceń sytuacj',
+        ];
+        foreach ($situationKeywords as $keyword) {
+            if (mb_strpos($lowerMessage, $keyword) !== false) {
+                return null; // Situation analysis — not streamable, processMessage will handle
+            }
+        }
+
         if ($intent['requires_agent']) {
-            return null; // Agent flow — not streamable
+            return null; // Agent flow — not streamable, processMessage will handle
         }
 
         // Conversation mode — stream it!
+        // NOW save the user message (only for successful streaming path)
+        $this->conversationManager->addUserMessage($conversation, $message);
+
         $knowledgeContext = $this->knowledgeBase->getContext($user, $intent['task_type'] ?? 'general');
         $messages = $this->conversationManager->buildAiPayload($conversation, $user, $knowledgeContext);
         $provider = $this->aiService->getProvider($integration);

@@ -68,6 +68,13 @@ class CampaignAgent extends BaseAgent
         if (!empty($params['user_details'])) {
             return false;
         }
+
+        // If conversation already has rich campaign context (detected by orchestrator),
+        // don't re-ask questions — the campaign was already designed in this conversation
+        if (!empty($params['conversation_has_campaign_context'])) {
+            return false;
+        }
+
         // Need at least topic/goal/product info to create a meaningful campaign
         return empty($params['topic']) && empty($params['goal']) && empty($params['product']);
     }

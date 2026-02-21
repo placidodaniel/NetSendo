@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Brain — Agent Reporting & Goal Continuation:**
+  - **Post-Execution Hook (`evaluatePostExecution`):** After an agent completes a plan linked to a goal, the orchestrator now automatically updates goal progress, reports completion status, and identifies the next sub-plan via `GoalPlanner::getNextAction()`.
+  - **Goal-Aware Failure Handling:** Plan failures now trigger `GoalPlanner::handlePlanFailure()` which tracks failures per goal and automatically pauses goals after 3 consecutive failures.
+  - **CRON Goal Progression Engine:** New step 2.7 in the CRON pipeline (`continueActiveGoals`) that finds active goals with pending sub-plans and executes the next action (autonomous mode) or sends for Telegram approval (semi-auto mode). Max 2 goals per cycle to prevent blocking.
+  - **Goal Completion Telegram Reports:** When all sub-plans of a goal are completed, a detailed completion report is sent via Telegram listing all executed plans.
+  - **CRON Telegram Report Enhancement:** Goal continuation results now included in the CRON cycle Telegram summary.
+  - **Localization:** Added `goals.completed_report`, `goals.continued_next_plan`, and `monitor.goals_continued` translation keys in PL, EN, DE, ES.
+
 - **Pixel v2.0 — Session Tracking:**
   - Added `session_id` (UUID) generation in the Pixel JavaScript using `sessionStorage` with a 30-minute idle timeout. Sessions are sent with every event for accurate session-based analytics (bounce rate, user journeys).
   - Database migration adds indexed `session_id` column to `pixel_events` table.

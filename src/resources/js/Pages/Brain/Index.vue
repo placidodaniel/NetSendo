@@ -346,10 +346,7 @@ const sendMessage = async () => {
 
                     if (json.done) {
                         // Stream complete — update metadata
-                        if (
-                            json.conversation_id &&
-                            !activeConversationId.value
-                        ) {
+                        if (json.conversation_id) {
                             activeConversationId.value = json.conversation_id;
                             isNewConversation.value = false;
                             await refreshConversations();
@@ -404,7 +401,7 @@ const sendMessage = async () => {
 
             const data = fallbackResponse.data;
 
-            if (data.conversation_id && !activeConversationId.value) {
+            if (data.conversation_id) {
                 activeConversationId.value = data.conversation_id;
                 isNewConversation.value = false;
                 await refreshConversations();
