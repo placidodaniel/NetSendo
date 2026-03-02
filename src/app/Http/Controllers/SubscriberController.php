@@ -1217,6 +1217,9 @@ class SubscriberController extends Controller
                 ]);
             }
 
+            // Dispatch event for autoresponder queue entries
+            event(new SubscriberSignedUp($subscriber, $list, null, 'import'));
+
             $imported++;
         }
 

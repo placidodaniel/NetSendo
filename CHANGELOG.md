@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.4] – Short Description
+
+**Release date:** 2026-03-02
+
 ### Fixed
 
 - **Pixel — Double Page View Counting (WordPress Plugin):**
@@ -14,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Pixel — Engagement Events Misreported as Page Views:**
   - Fixed `trackTimeOnPage()` sending `page_view` event type instead of a dedicated `engagement` event. This was further inflating page view counts with time-on-page/scroll-depth data. Renamed to `trackEngagement()` and changed event type to `engagement`.
+
+- **Autoresponder Queue — Missing SubscriberSignedUp Events:**
+  - Fixed autoresponder messages not being queued for subscribers added to lists through automations, tracked link clicks, webinar registration, subscriber preferences, CardIntel, form co-registration, resubscribe links, and CSV import. Root cause: these 10 code paths added subscribers to lists without dispatching the `SubscriberSignedUp` event, which is the sole trigger for`CreateAutoresponderQueueEntries` listener. All paths now correctly dispatch the event with unique source labels for traceability.
+  - **Files fixed:** `AutomationActionExecutor` (`moveToList`, `copyToList`), `TrackingController` (`processTrackedLinkActions`), `WebinarService` (`findOrCreateSubscriber`, `addSubscriberToList`), `SubscriberPreferencesController` (`confirm`), `CardIntelService` (`addToEmailList`), `FormSubmissionService` (`handleCoregistration`), `ActivationController` (`resubscribe`), `SubscriberController` (`import`).
 
 ### Added
 

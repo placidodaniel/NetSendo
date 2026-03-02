@@ -313,6 +313,9 @@ class CardIntelService
                         'source' => 'cardintel',
                         'subscribed_at' => now(),
                     ]);
+
+                    // Dispatch event for autoresponder queue entries
+                    event(new \App\Events\SubscriberSignedUp($subscriber, $contactList, null, 'cardintel'));
                 }
 
                 // Log action

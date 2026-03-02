@@ -515,6 +515,9 @@ class FormSubmissionService
                 'source' => 'coregistration',
                 'subscribed_at' => now(),
             ]);
+
+            // Dispatch event for autoresponder queue entries
+            event(new SubscriberSignedUp($subscriber, $list, null, 'coregistration'));
         }
     }
 

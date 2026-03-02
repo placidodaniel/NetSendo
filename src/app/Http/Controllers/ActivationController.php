@@ -134,6 +134,9 @@ class ActivationController extends Controller
                 'list_id' => $list->id,
             ]);
 
+            // Dispatch event for autoresponder queue entries
+            event(new \App\Events\SubscriberSignedUp($subscriber, $list, null, 'resubscribe'));
+
             // Send notification
             $this->emailService->sendInactiveResubscribeNotification($subscriber, $list);
 

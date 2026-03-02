@@ -7,6 +7,7 @@ use App\Models\ContactList;
 use App\Models\Tag;
 use App\Models\Funnel;
 use App\Models\Message;
+use App\Events\SubscriberSignedUp;
 use App\Jobs\SendEmailJob;
 use App\Services\Funnels\FunnelExecutionService;
 use Illuminate\Support\Facades\Http;
@@ -188,6 +189,9 @@ class AutomationActionExecutor
             ]);
         }
 
+        // Dispatch event for autoresponder queue entries
+        event(new SubscriberSignedUp($subscriber, $targetList, null, 'automation_move'));
+
         return [
             'source_list_id' => $sourceListId,
             'target_list_id' => $targetListId,
@@ -237,6 +241,9 @@ class AutomationActionExecutor
                 'subscribed_at' => now(),
             ]);
         }
+
+        // Dispatch event for autoresponder queue entries
+        event(new SubscriberSignedUp($subscriber, $targetList, null, 'automation_copy'));
 
         return ['target_list_id' => $targetListId, 'copied' => true];
     }

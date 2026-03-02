@@ -174,6 +174,12 @@ class TrackingController extends Controller
                             'source' => 'tracked_link_click',
                         ]);
                         Log::info("Subscriber {$subscriberId} added to list {$listId} via tracked link click");
+
+                        // Dispatch event for autoresponder queue entries
+                        $list = \App\Models\ContactList::find($listId);
+                        if ($list) {
+                            event(new \App\Events\SubscriberSignedUp($subscriber, $list, null, 'tracked_link'));
+                        }
                     } elseif ($existing->pivot->status !== 'active') {
                         // Reactivate if previously unsubscribed
                         $subscriber->contactLists()->updateExistingPivot($listId, [
@@ -181,6 +187,12 @@ class TrackingController extends Controller
                             'subscribed_at' => now(),
                         ]);
                         Log::info("Subscriber {$subscriberId} reactivated on list {$listId} via tracked link click");
+
+                        // Dispatch event for autoresponder queue entries
+                        $list = \App\Models\ContactList::find($listId);
+                        if ($list) {
+                            event(new \App\Events\SubscriberSignedUp($subscriber, $list, null, 'tracked_link_reactivation'));
+                        }
                     }
                 }
             }

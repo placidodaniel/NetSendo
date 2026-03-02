@@ -9,6 +9,7 @@ use App\Models\WebinarAnalytic;
 use App\Models\Subscriber;
 use App\Models\ContactList;
 use App\Models\Tag;
+use App\Events\SubscriberSignedUp;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
@@ -372,6 +373,9 @@ class WebinarService
                 'source' => 'webinar',
                 'created_at' => now(),
             ]);
+
+            // Dispatch event for autoresponder queue entries
+            event(new SubscriberSignedUp($subscriber, $list, null, 'webinar_registration'));
         }
 
         return $subscriber;
@@ -411,6 +415,9 @@ class WebinarService
                 'status' => 'active',
                 'subscribed_at' => now(),
             ]);
+
+            // Dispatch event for autoresponder queue entries
+            event(new SubscriberSignedUp($subscriber, $list, null, 'webinar_activity'));
         }
     }
 

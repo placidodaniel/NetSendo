@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\SubscriberSignedUp;
 use App\Events\SubscriberUnsubscribed;
 use App\Models\ContactList;
 use App\Models\Subscriber;
@@ -202,6 +203,12 @@ class SubscriberPreferencesController extends Controller
                             'subscriber_id' => $subscriber->id,
                             'list_id' => $listId,
                         ]);
+
+                        // Dispatch event for autoresponder queue entries
+                        $list = ContactList::find($listId);
+                        if ($list) {
+                            event(new SubscriberSignedUp($subscriber, $list, null, 'preferences'));
+                        }
                     } elseif ($existingPivot->pivot->status !== 'active') {
                         $result = $subscriber->contactLists()->updateExistingPivot($listId, [
                             'status' => 'active',
@@ -213,6 +220,12 @@ class SubscriberPreferencesController extends Controller
                             'list_id' => $listId,
                             'update_result' => $result,
                         ]);
+
+                        // Dispatch event for autoresponder queue entries
+                        $list = ContactList::find($listId);
+                        if ($list) {
+                            event(new SubscriberSignedUp($subscriber, $list, null, 'preferences_reactivation'));
+                        }
                     }
                 } else {
                     // Unsubscribe from the list
