@@ -3568,6 +3568,35 @@
         "click_for_details": "Kliknij, aby zobaczyć szczegóły błędu",
         "error_details": {
             "title": "Szczegóły błędu połączenia"
+        },
+        "reputation": {
+            "title": "Reputacja domeny",
+            "subtitle": "Status domeny nadawcy na czarnych listach DNS",
+            "clean": "Czysta",
+            "warning": "Ostrzeżenie",
+            "critical": "Na czarnej liście!",
+            "unchecked": "Niesprawdzona",
+            "check_now": "Sprawdź reputację",
+            "checking": "Sprawdzanie...",
+            "last_checked": "Ostatnio sprawdzono",
+            "listed_on": "Wykryto na",
+            "not_listed": "Niewykryto",
+            "lookup_url": "Sprawdź / Usuń z listy",
+            "domain": "Domena",
+            "severity": "Istotność",
+            "severity_critical": "Krytyczna",
+            "severity_high": "Wysoka",
+            "severity_medium": "Średnia",
+            "severity_low": "Niska",
+            "modal_title": "Reputacja domeny — szczegóły",
+            "blacklist_name": "Czarna lista",
+            "status": "Status",
+            "listed": "Wykryto",
+            "clean_label": "OK",
+            "summary_clean": "Domena jest czysta — nie wykryto na żadnej czarnej liście.",
+            "summary_warning": "Domena wykryta na {count} czarnej liście o niskim/średnim priorytecie.",
+            "summary_critical": "UWAGA: Domena jest na {count} krytycznej czarnej liście! Wysyłka emaili może być blokowana.",
+            "never_checked": "Nigdy nie sprawdzano"
         }
     },
     "sms_providers": {

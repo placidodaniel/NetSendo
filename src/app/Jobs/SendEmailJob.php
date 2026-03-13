@@ -2,11 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Events\EmailBounced;
 use App\Models\Mailbox;
 use App\Models\Message;
 use App\Models\MessageQueueEntry;
 use App\Models\MessageTrackedLink;
 use App\Models\Subscriber;
+use App\Services\Mail\BounceProcessingService;
 use App\Services\Mail\MailProviderService;
 use App\Services\PlaceholderService;
 use App\Services\EmailImageService;
@@ -249,10 +251,42 @@ class SendEmailJob implements ShouldQueue
             $this->markQueueEntryAsSent();
 
         } catch (\Exception $e) {
-            Log::error("Failed to send email to {$this->subscriber->email}: " . $e->getMessage());
+            $errorMsg = $e->getMessage();
+            Log::error("Failed to send email to {$this->subscriber->email}: " . $errorMsg);
+
+            // Detect inline SMTP bounce from error codes (5xx = hard bounce)
+            try {
+                $bounceService = app(BounceProcessingService::class);
+
+                if ($bounceService->isHardBounceError($errorMsg)) {
+                    Log::info("Inline hard bounce detected for {$this->subscriber->email}", [
+                        'error' => $errorMsg,
+                    ]);
+                    $bounceService->processBounce(
+                        email: $this->subscriber->email,
+                        bounceType: EmailBounced::TYPE_HARD,
+                        bounceReason: mb_substr($errorMsg, 0, 255),
+                        messageId: (string) $this->message->id,
+                        provider: 'smtp_inline'
+                    );
+                } elseif ($bounceService->isSoftBounceError($errorMsg)) {
+                    Log::info("Inline soft bounce detected for {$this->subscriber->email}", [
+                        'error' => $errorMsg,
+                    ]);
+                    $bounceService->processBounce(
+                        email: $this->subscriber->email,
+                        bounceType: EmailBounced::TYPE_SOFT,
+                        bounceReason: mb_substr($errorMsg, 0, 255),
+                        messageId: (string) $this->message->id,
+                        provider: 'smtp_inline'
+                    );
+                }
+            } catch (\Exception $bounceEx) {
+                Log::warning("Failed to process inline bounce: " . $bounceEx->getMessage());
+            }
 
             // Mark queue entry as failed
-            $this->markQueueEntryAsFailed($e->getMessage());
+            $this->markQueueEntryAsFailed($errorMsg);
 
             $this->fail($e);
         }
@@ -320,6 +354,16 @@ class SendEmailJob implements ShouldQueue
     private function resolveHeaders(PlaceholderService $placeholderService): array
     {
         $rawHeaders = [];
+
+        // 0. Return-Path for bounce mailbox handling
+        // If the mailbox has bounce monitoring enabled, set Return-Path
+        // so bounce emails go to the monitored IMAP mailbox
+        if ($this->mailbox && $this->mailbox->bounce_enabled) {
+            $bounceEmail = $this->mailbox->getBounceEmail();
+            if ($bounceEmail) {
+                $rawHeaders['Return-Path'] = $bounceEmail;
+            }
+        }
 
         // 1. Global Defaults
         // Access settings.sending.headers

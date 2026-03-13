@@ -30,6 +30,19 @@ class Mailbox extends Model
         'last_test_success',
         'last_test_message',
         'google_integration_id',
+        // Bounce mailbox IMAP monitoring
+        'bounce_enabled',
+        'bounce_imap_host',
+        'bounce_imap_port',
+        'bounce_imap_encryption',
+        'bounce_imap_credentials',
+        'bounce_imap_folder',
+        'bounce_last_scanned_at',
+        'bounce_last_scan_count',
+        // Reputation monitoring
+        'reputation_status',
+        'reputation_checked_at',
+        'reputation_overall',
     ];
 
     protected $casts = [
@@ -41,10 +54,17 @@ class Mailbox extends Model
         'sent_today_date' => 'date',
         'last_tested_at' => 'datetime',
         'last_test_success' => 'boolean',
+        'bounce_enabled' => 'boolean',
+        'bounce_imap_port' => 'integer',
+        'bounce_last_scanned_at' => 'datetime',
+        'bounce_last_scan_count' => 'integer',
+        'reputation_status' => 'array',
+        'reputation_checked_at' => 'datetime',
     ];
 
     protected $hidden = [
         'credentials',
+        'bounce_imap_credentials',
     ];
 
     /**
@@ -170,6 +190,35 @@ class Mailbox extends Model
     }
 
     /**
+     * Set bounce IMAP credentials (auto-encrypt)
+     */
+    public function setBounceImapCredentialsAttribute($value): void
+    {
+        if ($value === null) {
+            $this->attributes['bounce_imap_credentials'] = null;
+            return;
+        }
+        $this->attributes['bounce_imap_credentials'] = Crypt::encryptString(
+            is_array($value) ? json_encode($value) : $value
+        );
+    }
+
+    /**
+     * Get decrypted bounce IMAP credentials as array
+     */
+    public function getDecryptedBounceCredentials(): array
+    {
+        try {
+            if (empty($this->attributes['bounce_imap_credentials'])) {
+                return [];
+            }
+            return json_decode(Crypt::decryptString($this->attributes['bounce_imap_credentials']), true) ?? [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
      * Check if this mailbox can send a specific message type
      */
     public function canSendType(string $type): bool
@@ -262,6 +311,25 @@ class Mailbox extends Model
     }
 
     /**
+     * Scope: Bounce-enabled mailboxes
+     */
+    public function scopeBounceEnabled($query)
+    {
+        return $query->where('bounce_enabled', true)
+            ->whereNotNull('bounce_imap_host')
+            ->whereNotNull('bounce_imap_credentials');
+    }
+
+    /**
+     * Get the bounce email address (from bounce IMAP credentials)
+     */
+    public function getBounceEmail(): ?string
+    {
+        $creds = $this->getDecryptedBounceCredentials();
+        return $creds['username'] ?? null;
+    }
+
+    /**
      * Get the default mailbox for a user (or create fallback)
      */
     public static function getDefaultFor(int $userId): ?self
@@ -271,5 +339,37 @@ class Mailbox extends Model
             ->where('is_default', true)
             ->first()
             ?? static::forUser($userId)->active()->first();
+    }
+
+    /**
+     * Check if this mailbox's domain is blacklisted (critical or warning)
+     */
+    public function isBlacklistedDomain(): bool
+    {
+        return in_array($this->reputation_overall, ['critical', 'warning']);
+    }
+
+    /**
+     * Get the sending domain extracted from from_email
+     */
+    public function getDomain(): ?string
+    {
+        if (!$this->from_email || !str_contains($this->from_email, '@')) {
+            return null;
+        }
+
+        return strtolower(substr($this->from_email, strpos($this->from_email, '@') + 1));
+    }
+
+    /**
+     * Scope: Mailboxes that need a reputation check
+     */
+    public function scopeNeedsReputationCheck($query)
+    {
+        return $query->active()
+            ->where(function ($q) {
+                $q->whereNull('reputation_checked_at')
+                  ->orWhere('reputation_checked_at', '<', now()->subHours(12));
+            });
     }
 }

@@ -62,6 +62,110 @@ const closeErrorModal = () => {
     errorMailbox.value = null;
 };
 
+// Reputation modal state
+const showReputationModal = ref(false);
+const reputationMailbox = ref(null);
+const reputationDetails = ref(null);
+const reputationSummary = ref(null);
+const checkingReputation = ref(null);
+
+const checkReputation = async (mailbox) => {
+    checkingReputation.value = mailbox.id;
+    try {
+        const response = await fetch(
+            route("mailboxes.check-reputation", mailbox.id),
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]',
+                    )?.content,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            },
+        );
+        const data = await response.json();
+        if (data.success) {
+            reputationMailbox.value = mailbox;
+            reputationSummary.value = data.data.summary;
+            reputationDetails.value = data.data.details;
+            showReputationModal.value = true;
+            // Refresh to get updated status
+            router.reload({ only: ["mailboxes"] });
+        } else {
+            showToast(data.message || "Error checking reputation", false);
+        }
+    } catch (e) {
+        showToast("Error checking reputation", false);
+    } finally {
+        checkingReputation.value = null;
+    }
+};
+
+const openReputationDetails = (mailbox) => {
+    reputationMailbox.value = mailbox;
+    // Show cached data from the mailbox prop
+    reputationSummary.value = {
+        overall: mailbox.reputation_overall || "unchecked",
+        last_checked: mailbox.reputation_checked_at,
+        domain: mailbox.from_email?.split("@")[1] || "",
+    };
+    // Build details from status
+    reputationDetails.value = null;
+    showReputationModal.value = true;
+    // Fetch fresh details
+    checkReputation(mailbox);
+};
+
+const closeReputationModal = () => {
+    showReputationModal.value = false;
+    reputationMailbox.value = null;
+    reputationDetails.value = null;
+    reputationSummary.value = null;
+};
+
+const getReputationBadgeClass = (overall) => {
+    switch (overall) {
+        case "clean":
+            return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+        case "warning":
+            return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+        case "critical":
+            return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+        default:
+            return "bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-gray-400";
+    }
+};
+
+const getReputationDot = (overall) => {
+    switch (overall) {
+        case "clean":
+            return "✅";
+        case "warning":
+            return "⚠️";
+        case "critical":
+            return "🔴";
+        default:
+            return "⏳";
+    }
+};
+
+const getSeverityClass = (severity) => {
+    switch (severity) {
+        case "critical":
+            return "text-rose-600 dark:text-rose-400";
+        case "high":
+            return "text-orange-600 dark:text-orange-400";
+        case "medium":
+            return "text-amber-600 dark:text-amber-400";
+        case "low":
+            return "text-gray-500 dark:text-gray-400";
+        default:
+            return "text-gray-500";
+    }
+};
+
 // Toast notification
 const toast = ref(null);
 const showToast = (message, success = true) => {
@@ -115,7 +219,7 @@ watch(
             // Gmail does NOT support broadcast via API in this system version
             // Remove broadcast from allowed_types
             form.allowed_types = form.allowed_types.filter(
-                (type) => type !== "broadcast"
+                (type) => type !== "broadcast",
             );
         } else {
             // For other providers, ensure we default to all unless edited
@@ -138,7 +242,7 @@ watch(
         // Reset credentials when provider changes
         form.credentials = {};
         showPassword.value = {};
-    }
+    },
 );
 
 // Open modal for creating/editing
@@ -223,7 +327,7 @@ const submitForm = () => {
                     // Since specific logic to find "the one we just made" can be tricky with lists,
                     // we'll try to match by name or just find the one that is gmail and not connected.
                     const newMailbox = props.mailboxes.find(
-                        (m) => m.name === form.name && m.provider === "gmail"
+                        (m) => m.name === form.name && m.provider === "gmail",
                     );
                     if (newMailbox) {
                         openModal(newMailbox);
@@ -254,10 +358,10 @@ const testConnection = async (mailbox) => {
                     "Content-Type": "application/json",
                     Accept: "application/json",
                     "X-CSRF-TOKEN": document.querySelector(
-                        'meta[name="csrf-token"]'
+                        'meta[name="csrf-token"]',
                     )?.content,
                 },
-            }
+            },
         );
 
         const data = await response.json();
@@ -269,7 +373,7 @@ const testConnection = async (mailbox) => {
     } catch (error) {
         showToast(
             t("common.notifications.error") + ": " + error.message,
-            false
+            false,
         );
     } finally {
         testingMailbox.value = null;
@@ -286,7 +390,7 @@ const setDefault = (mailbox) => {
             onSuccess: () => {
                 showToast(t("mailboxes.notifications.set_default"));
             },
-        }
+        },
     );
 };
 
@@ -314,7 +418,7 @@ const deleteMailbox = () => {
                 closeDeleteModal();
                 showToast(t("mailboxes.notifications.deleted"));
             },
-        }
+        },
     );
 };
 
@@ -336,7 +440,7 @@ const toggleActive = (mailbox) => {
         },
         {
             preserveScroll: true,
-        }
+        },
     );
 };
 
@@ -392,7 +496,7 @@ const disconnectGmail = () => {
             onSuccess: (page) => {
                 // Update the editingMailbox with the fresh instance from the updated props
                 const updatedMailbox = props.mailboxes.find(
-                    (m) => m.id === editingMailbox.value.id
+                    (m) => m.id === editingMailbox.value.id,
                 );
                 if (updatedMailbox) {
                     editingMailbox.value = updatedMailbox;
@@ -406,7 +510,7 @@ const disconnectGmail = () => {
             onError: () => {
                 showToast(t("common.notifications.error"), false);
             },
-        }
+        },
     );
 };
 
@@ -586,8 +690,6 @@ const isBroadcastDisabled = computed(() => {
                             : 'border-slate-200'
                     "
                 >
-
-
                     <!-- Provider Icon & Name -->
                     <div class="flex items-start gap-3">
                         <div
@@ -668,6 +770,29 @@ const isBroadcastDisabled = computed(() => {
                             ></span>
                             {{ getStatusText(mailbox) }}
                         </span>
+                        <!-- Reputation Badge -->
+                        <span
+                            v-if="
+                                mailbox.reputation_overall &&
+                                mailbox.reputation_overall !== 'unchecked'
+                            "
+                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer"
+                            :class="
+                                getReputationBadgeClass(
+                                    mailbox.reputation_overall,
+                                )
+                            "
+                            @click="openReputationDetails(mailbox)"
+                            :title="$t('mailboxes.reputation.title')"
+                        >
+                            {{ getReputationDot(mailbox.reputation_overall) }}
+                            {{
+                                $t(
+                                    "mailboxes.reputation." +
+                                        mailbox.reputation_overall,
+                                )
+                            }}
+                        </span>
                     </div>
 
                     <!-- Allowed Types -->
@@ -739,6 +864,49 @@ const isBroadcastDisabled = computed(() => {
                                     stroke-linejoin="round"
                                     stroke-width="2"
                                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                        </button>
+
+                        <!-- Check Reputation -->
+                        <button
+                            @click="checkReputation(mailbox)"
+                            :disabled="checkingReputation === mailbox.id"
+                            class="rounded-lg bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-violet-50 hover:text-violet-600 disabled:opacity-50 dark:bg-slate-700 dark:text-gray-400 dark:hover:bg-violet-900/20 dark:hover:text-violet-400"
+                            :title="$t('mailboxes.reputation.check_now')"
+                        >
+                            <svg
+                                v-if="checkingReputation === mailbox.id"
+                                class="h-5 w-5 animate-spin"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle
+                                    class="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    stroke-width="4"
+                                ></circle>
+                                <path
+                                    class="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                            </svg>
+                            <svg
+                                v-else
+                                class="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                                 />
                             </svg>
                         </button>
@@ -1073,7 +1241,7 @@ const isBroadcastDisabled = computed(() => {
                                 <p class="text-sm">
                                     {{
                                         $t(
-                                            "mailboxes.modal.integration_not_configured_warning"
+                                            "mailboxes.modal.integration_not_configured_warning",
                                         )
                                     }}
                                     <br />
@@ -1085,7 +1253,7 @@ const isBroadcastDisabled = computed(() => {
                                     >
                                         {{
                                             $t(
-                                                "mailboxes.modal.go_to_integrations"
+                                                "mailboxes.modal.go_to_integrations",
                                             )
                                         }}
                                     </Link>
@@ -1100,7 +1268,7 @@ const isBroadcastDisabled = computed(() => {
                                     >
                                         {{
                                             $t(
-                                                "mailboxes.modal.google_integration_label"
+                                                "mailboxes.modal.google_integration_label",
                                             )
                                         }}
                                     </label>
@@ -1111,7 +1279,7 @@ const isBroadcastDisabled = computed(() => {
                                         <option :value="null" disabled>
                                             {{
                                                 $t(
-                                                    "mailboxes.modal.google_integration_placeholder"
+                                                    "mailboxes.modal.google_integration_placeholder",
                                                 )
                                             }}
                                         </option>
@@ -1123,7 +1291,7 @@ const isBroadcastDisabled = computed(() => {
                                             {{ integration.name }} ({{
                                                 integration.client_id.substring(
                                                     0,
-                                                    15
+                                                    15,
                                                 )
                                             }}...)
                                         </option>
@@ -1134,7 +1302,7 @@ const isBroadcastDisabled = computed(() => {
                                     >
                                         {{
                                             $t(
-                                                "mailboxes.modal.no_integrations"
+                                                "mailboxes.modal.no_integrations",
                                             )
                                         }}
                                     </p>
@@ -1153,7 +1321,7 @@ const isBroadcastDisabled = computed(() => {
                                         <p class="text-sm">
                                             {{
                                                 $t(
-                                                    "mailboxes.modal.integration_changed_warning"
+                                                    "mailboxes.modal.integration_changed_warning",
                                                 )
                                             }}
                                         </p>
@@ -1166,7 +1334,7 @@ const isBroadcastDisabled = computed(() => {
                                         <p class="text-sm">
                                             {{
                                                 $t(
-                                                    "mailboxes.modal.select_integration_to_connect"
+                                                    "mailboxes.modal.select_integration_to_connect",
                                                 )
                                             }}
                                         </p>
@@ -1196,10 +1364,10 @@ const isBroadcastDisabled = computed(() => {
                                                     {{
                                                         editingMailbox.gmail_connected
                                                             ? $t(
-                                                                  "mailboxes.oauth.connected"
+                                                                  "mailboxes.oauth.connected",
                                                               )
                                                             : $t(
-                                                                  "mailboxes.oauth.not_connected"
+                                                                  "mailboxes.oauth.not_connected",
                                                               )
                                                     }}
                                                 </h4>
@@ -1227,7 +1395,7 @@ const isBroadcastDisabled = computed(() => {
                                                 >
                                                     {{
                                                         $t(
-                                                            "mailboxes.oauth.disconnect"
+                                                            "mailboxes.oauth.disconnect",
                                                         )
                                                     }}
                                                 </button>
@@ -1237,7 +1405,7 @@ const isBroadcastDisabled = computed(() => {
                                                     :href="
                                                         route(
                                                             'settings.mailboxes.gmail.connect',
-                                                            editingMailbox.id
+                                                            editingMailbox.id,
                                                         )
                                                     "
                                                     class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-slate-700 dark:text-white dark:ring-slate-600 dark:hover:bg-slate-600"
@@ -1266,7 +1434,7 @@ const isBroadcastDisabled = computed(() => {
                                                     </svg>
                                                     {{
                                                         $t(
-                                                            "mailboxes.oauth.connect_google"
+                                                            "mailboxes.oauth.connect_google",
                                                         )
                                                     }}
                                                 </a>
@@ -1479,7 +1647,7 @@ const isBroadcastDisabled = computed(() => {
                                         >
                                             {{
                                                 $t(
-                                                    "mailboxes.modal.broadcast_disabled"
+                                                    "mailboxes.modal.broadcast_disabled",
                                                 )
                                             }}
                                         </p>
@@ -1687,6 +1855,247 @@ const isBroadcastDisabled = computed(() => {
 
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton @click="closeErrorModal">
+                        {{ $t("common.close") }}
+                    </SecondaryButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Reputation Details Modal -->
+        <Modal
+            :show="showReputationModal"
+            @close="closeReputationModal"
+            max-width="lg"
+        >
+            <div class="p-6">
+                <h3
+                    class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                >
+                    {{ $t("mailboxes.reputation.modal_title") }}
+                </h3>
+
+                <div v-if="reputationSummary" class="mt-4">
+                    <!-- Summary -->
+                    <div
+                        class="flex items-center gap-3 rounded-lg p-3"
+                        :class="{
+                            'bg-emerald-50 dark:bg-emerald-900/20':
+                                reputationSummary.overall === 'clean',
+                            'bg-amber-50 dark:bg-amber-900/20':
+                                reputationSummary.overall === 'warning',
+                            'bg-rose-50 dark:bg-rose-900/20':
+                                reputationSummary.overall === 'critical',
+                            'bg-gray-50 dark:bg-gray-800':
+                                reputationSummary.overall === 'unchecked',
+                        }"
+                    >
+                        <span class="text-2xl">{{
+                            getReputationDot(reputationSummary.overall)
+                        }}</span>
+                        <div>
+                            <p
+                                class="font-medium text-gray-900 dark:text-gray-100"
+                            >
+                                {{ $t("mailboxes.reputation.domain") }}:
+                                {{ reputationSummary.domain }}
+                            </p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                <template
+                                    v-if="reputationSummary.overall === 'clean'"
+                                >
+                                    {{
+                                        $t("mailboxes.reputation.summary_clean")
+                                    }}
+                                </template>
+                                <template
+                                    v-else-if="
+                                        reputationSummary.overall === 'critical'
+                                    "
+                                >
+                                    {{
+                                        $t(
+                                            "mailboxes.reputation.summary_critical",
+                                            {
+                                                count:
+                                                    reputationSummary.listed_count ||
+                                                    "?",
+                                            },
+                                        )
+                                    }}
+                                </template>
+                                <template
+                                    v-else-if="
+                                        reputationSummary.overall === 'warning'
+                                    "
+                                >
+                                    {{
+                                        $t(
+                                            "mailboxes.reputation.summary_warning",
+                                            {
+                                                count:
+                                                    reputationSummary.listed_count ||
+                                                    "?",
+                                            },
+                                        )
+                                    }}
+                                </template>
+                                <template v-else>
+                                    {{ $t("mailboxes.reputation.unchecked") }}
+                                </template>
+                            </p>
+                            <p
+                                v-if="reputationSummary.last_checked"
+                                class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                                {{ $t("mailboxes.reputation.last_checked") }}:
+                                {{
+                                    new Date(
+                                        reputationSummary.last_checked,
+                                    ).toLocaleString()
+                                }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Details table -->
+                    <div v-if="reputationDetails" class="mt-4">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b dark:border-gray-700">
+                                    <th
+                                        class="py-2 text-left font-medium text-gray-600 dark:text-gray-400"
+                                    >
+                                        {{
+                                            $t(
+                                                "mailboxes.reputation.blacklist_name",
+                                            )
+                                        }}
+                                    </th>
+                                    <th
+                                        class="py-2 text-left font-medium text-gray-600 dark:text-gray-400"
+                                    >
+                                        {{
+                                            $t("mailboxes.reputation.severity")
+                                        }}
+                                    </th>
+                                    <th
+                                        class="py-2 text-left font-medium text-gray-600 dark:text-gray-400"
+                                    >
+                                        {{ $t("mailboxes.reputation.status") }}
+                                    </th>
+                                    <th class="py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="detail in reputationDetails"
+                                    :key="detail.key"
+                                    class="border-b dark:border-gray-700/50"
+                                >
+                                    <td class="py-2.5">
+                                        <div
+                                            class="font-medium text-gray-800 dark:text-gray-200"
+                                        >
+                                            {{ detail.name }}
+                                        </div>
+                                        <div class="text-xs text-gray-400">
+                                            {{ detail.zone }}
+                                        </div>
+                                    </td>
+                                    <td class="py-2.5">
+                                        <span
+                                            :class="
+                                                getSeverityClass(
+                                                    detail.severity,
+                                                )
+                                            "
+                                            class="text-xs font-medium uppercase"
+                                        >
+                                            {{
+                                                $t(
+                                                    "mailboxes.reputation.severity_" +
+                                                        detail.severity,
+                                                )
+                                            }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5">
+                                        <span
+                                            v-if="detail.listed"
+                                            class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                        >
+                                            🔴
+                                            {{
+                                                $t(
+                                                    "mailboxes.reputation.listed",
+                                                )
+                                            }}
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                        >
+                                            ✅
+                                            {{
+                                                $t(
+                                                    "mailboxes.reputation.clean_label",
+                                                )
+                                            }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 text-right">
+                                        <a
+                                            v-if="detail.lookup_url"
+                                            :href="detail.lookup_url"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                        >
+                                            {{
+                                                $t(
+                                                    "mailboxes.reputation.lookup_url",
+                                                )
+                                            }}
+                                            →
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading state -->
+                    <div
+                        v-else
+                        class="mt-4 flex items-center justify-center py-8"
+                    >
+                        <svg
+                            class="h-6 w-6 animate-spin text-indigo-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                            ></circle>
+                            <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                        </svg>
+                        <span class="ml-2 text-sm text-gray-500">{{
+                            $t("mailboxes.reputation.checking")
+                        }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="closeReputationModal">
                         {{ $t("common.close") }}
                     </SecondaryButton>
                 </div>

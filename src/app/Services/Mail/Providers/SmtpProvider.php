@@ -80,6 +80,12 @@ class SmtpProvider implements MailProviderInterface
                 ->subject($subject)
                 ->html($htmlContent);
 
+            // Set Return-Path for bounce routing
+            if (!empty($headers['Return-Path'])) {
+                $email->returnPath($headers['Return-Path']);
+                unset($headers['Return-Path']);
+            }
+
             // Add attachments
             foreach ($attachments as $attachment) {
                 if (isset($attachment['path']) && file_exists($attachment['path'])) {

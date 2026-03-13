@@ -167,6 +167,12 @@ Schedule::command('deliverability:upgrade-dmarc')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/deliverability-dmarc.log'));
 
+// Mailbox Reputation Monitor - sprawdzanie domen na blacklistach - co 6 godzin
+Schedule::command('mailbox:check-reputation')
+    ->everySixHours()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/mailbox-reputation.log'));
+
 /*
 |--------------------------------------------------------------------------
 | NetSendo Mail Infrastructure (NMI) Jobs
@@ -193,6 +199,21 @@ Schedule::command('nmi:rotate-dkim')
     ->at('04:00')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/nmi-dkim.log'));
+
+/*
+|--------------------------------------------------------------------------
+| Bounce Mailbox Monitoring
+|--------------------------------------------------------------------------
+| Skanowanie skrzynek IMAP w poszukiwaniu bounce-back emaili (DSN).
+| Automatycznie oznacza subskrybentów jako bounced.
+*/
+
+// Bounce Mailbox Scanner - co 5 minut
+Schedule::command('bounce:process-mailboxes')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/bounce-mailbox.log'));
 
 /*
 |--------------------------------------------------------------------------

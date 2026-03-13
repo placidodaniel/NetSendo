@@ -119,6 +119,12 @@ class NmiProvider implements MailProviderInterface
                 $email->replyTo($this->replyTo);
             }
 
+            // Set Return-Path for bounce routing
+            if (!empty($headers['Return-Path'])) {
+                $email->returnPath($headers['Return-Path']);
+                unset($headers['Return-Path']);
+            }
+
             // Add NMI-specific headers
             $headers['X-NMI-Domain'] = $this->domain->domain;
             if ($this->dedicatedIp) {

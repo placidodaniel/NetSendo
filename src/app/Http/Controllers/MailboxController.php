@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Mailbox;
+use App\Services\Mail\BounceMailboxService;
 use App\Services\Mail\MailProviderService;
+use App\Services\Mail\MailboxReputationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -14,7 +16,9 @@ class MailboxController extends Controller
     use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
     public function __construct(
-        private MailProviderService $providerService
+        private MailProviderService $providerService,
+        private BounceMailboxService $bounceService,
+        private MailboxReputationService $reputationService
     ) {}
 
     /**
@@ -55,6 +59,18 @@ class MailboxController extends Controller
                     'reply_to' => $mailbox->reply_to,
                     'time_restriction' => $mailbox->time_restriction,
                     'google_integration_id' => $mailbox->google_integration_id,
+                    // Bounce mailbox monitoring
+                    'bounce_enabled' => $mailbox->bounce_enabled,
+                    'bounce_imap_host' => $mailbox->bounce_imap_host,
+                    'bounce_imap_port' => $mailbox->bounce_imap_port,
+                    'bounce_imap_encryption' => $mailbox->bounce_imap_encryption,
+                    'bounce_imap_folder' => $mailbox->bounce_imap_folder,
+                    'bounce_last_scanned_at' => $mailbox->bounce_last_scanned_at?->toIso8601String(),
+                    'bounce_last_scan_count' => $mailbox->bounce_last_scan_count,
+                    // Reputation monitoring
+                    'reputation_overall' => $mailbox->reputation_overall ?? 'unchecked',
+                    'reputation_checked_at' => $mailbox->reputation_checked_at?->toIso8601String(),
+                    'reputation_status' => $mailbox->reputation_status,
                 ];
             });
 
@@ -246,6 +262,31 @@ class MailboxController extends Controller
 
         $mailbox->update($updateData);
 
+        // Handle bounce mailbox configuration separately
+        if ($request->has('bounce_enabled')) {
+            $bounceData = [
+                'bounce_enabled' => $request->boolean('bounce_enabled'),
+                'bounce_imap_host' => $request->input('bounce_imap_host'),
+                'bounce_imap_port' => $request->input('bounce_imap_port', 993),
+                'bounce_imap_encryption' => $request->input('bounce_imap_encryption', 'ssl'),
+                'bounce_imap_folder' => $request->input('bounce_imap_folder', 'INBOX'),
+            ];
+
+            // Handle bounce IMAP credentials (merge with existing if password not provided)
+            $bounceUsername = $request->input('bounce_imap_username');
+            $bouncePassword = $request->input('bounce_imap_password');
+
+            if ($bounceUsername || $bouncePassword) {
+                $currentBounceCreds = $mailbox->getDecryptedBounceCredentials();
+                $bounceData['bounce_imap_credentials'] = [
+                    'username' => $bounceUsername ?: ($currentBounceCreds['username'] ?? ''),
+                    'password' => $bouncePassword ?: ($currentBounceCreds['password'] ?? ''),
+                ];
+            }
+
+            $mailbox->update($bounceData);
+        }
+
         return back()->with('success', __('mailboxes.updated'));
     }
 
@@ -305,5 +346,55 @@ class MailboxController extends Controller
         $mailbox->setAsDefault();
 
         return back()->with('success', __('mailboxes.set_default'));
+    }
+
+    /**
+     * Test bounce IMAP connection
+     */
+    public function testBounce(Mailbox $mailbox)
+    {
+        $this->authorize('update', $mailbox);
+
+        if (!$mailbox->bounce_enabled || !$mailbox->bounce_imap_host) {
+            return response()->json([
+                'success' => false,
+                'message' => __('mailboxes.bounce.test_failed') . ': Bounce monitoring not configured.',
+            ]);
+        }
+
+        $result = $this->bounceService->testConnection($mailbox);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['success']
+                ? __('mailboxes.bounce.test_success')
+                : __('mailboxes.bounce.test_failed') . ': ' . $result['message'],
+            'folder_count' => $result['folder_count'] ?? null,
+        ]);
+    }
+
+    /**
+     * Check mailbox domain reputation (blacklist check)
+     */
+    public function checkReputation(Mailbox $mailbox)
+    {
+        $this->authorize('update', $mailbox);
+
+        try {
+            $results = $this->reputationService->checkAndUpdateMailbox($mailbox);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'summary' => $this->reputationService->getSummary($mailbox->fresh()),
+                    'details' => $this->reputationService->getDetails($mailbox->fresh()),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

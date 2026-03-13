@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **IMAP Bounce Mailbox Monitor:**
+  - **Automatic Bounce Detection:** New system that monitors a dedicated IMAP mailbox for bounce-back emails (DSN — Delivery Status Notifications) and automatically marks subscribers as bounced. Designed for users sending via custom SMTP providers where webhook-based bounce handling is not available.
+  - **BounceMailboxService:** Connects to IMAP mailboxes using `webklex/php-imap` (pure PHP, no `ext-imap` required), parses RFC 3464 DSN messages, classifies bounces as hard (5.1.x, 5.2.x, 5.5.x) or soft (4.x.x), and processes them via the shared `BounceProcessingService`.
+  - **BounceProcessingService:** Extracted shared bounce processing logic from `BounceController` into a reusable service. Handles marking subscribers as bounced (hard bounces or soft bounces exceeding threshold) and dispatching `EmailBounced` events. Used by webhooks, IMAP scanner, and inline SMTP detection.
+  - **Inline SMTP Error Detection:** `SendEmailJob` now catches synchronous SMTP rejections (5xx hard bounces, 4xx soft bounces) during sending and processes them immediately via `BounceProcessingService`, without waiting for the IMAP scan.
+  - **Return-Path Header:** When bounce monitoring is enabled, outgoing emails automatically include a `Return-Path` header pointing to the configured bounce mailbox, ensuring DSN replies are routed correctly. Supported in both `SmtpProvider` and `NmiProvider`.
+  - **Artisan Command:** New `bounce:process-mailboxes` command with `--dry-run` and `--mailbox` options for manual scanning and debugging.
+  - **CRON Integration:** `bounce:process-mailboxes` registered in the scheduler to run every 5 minutes automatically.
+  - **IMAP Connection Test:** New `POST /settings/mailboxes/{mailbox}/test-bounce` endpoint for testing IMAP connectivity from the UI.
+  - **Database Migration:** Added `bounce_enabled`, `bounce_imap_host`, `bounce_imap_port`, `bounce_imap_encryption`, `bounce_imap_credentials` (encrypted), `bounce_imap_folder`, `bounce_last_scanned_at`, and `bounce_last_scan_count` columns to the `mailboxes` table.
+  - **MailboxController:** Updated to expose bounce configuration fields in the index response, handle bounce settings in the update method, and provide the `testBounce` endpoint.
+  - **Dependency:** Added `webklex/php-imap` ^6.2 (installed automatically via `composer install` during updates).
+  - **Localization:** Full translations for bounce mailbox monitoring UI in PL, EN, DE, ES.
+
+- **Mailbox Reputation Monitor (Domain Blacklist Checking):**
+  - **MailboxReputationService:** New service that checks sender domains (extracted from `from_email`) against 7 DNS-based blacklists: Spamhaus DBL, SURBL, URIBL, Spamhaus ZRD, Barracuda Domain BL, SEM FRESH, and SEM URIBL. Supports all mailbox providers (SMTP, SendGrid, Gmail).
+  - **Intelligent Caching:** Results are cached per domain to avoid redundant DNS lookups when multiple mailboxes share the same sending domain.
+  - **Adaptive Check Frequency:** Mailboxes with `critical` or `warning` status are re-checked every 4 hours; `clean` mailboxes every 12 hours.
+  - **Database Migration:** Added `reputation_status` (JSON), `reputation_checked_at` (timestamp), and `reputation_overall` (string) columns to the `mailboxes` table.
+  - **Mailbox Model:** Added reputation fields to `$fillable` and `$casts`, plus helper methods: `isBlacklistedDomain()`, `getDomain()`, `scopeNeedsReputationCheck()`.
+  - **Artisan Command:** New `mailbox:check-reputation` command with `--mailbox` option for checking individual or all mailboxes.
+  - **CRON Integration:** `mailbox:check-reputation` scheduled to run every 6 hours automatically.
+  - **API Endpoint:** New `POST /mailboxes/{mailbox}/check-reputation` for manual on-demand reputation checks from the UI.
+  - **Frontend UI:** Added reputation status badge (✅ Clean / ⚠️ Warning / 🔴 Blacklisted) to mailbox cards, shield button for manual checks, and a detailed results modal showing per-blacklist status with severity levels and delist URLs.
+  - **Localization:** Full translations for reputation monitoring UI in PL, EN, DE, ES.
+
+### Changed
+
+- **BounceController Refactored:** Webhook handlers (SendGrid, Postmark, Mailgun, generic) now delegate to `BounceProcessingService` instead of containing inline bounce processing logic, reducing code duplication.
+
 ## [2.0.4] – Short Description
 
 **Release date:** 2026-03-02

@@ -3833,6 +3833,35 @@
         "click_for_details": "Click to see error details",
         "error_details": {
             "title": "Connection Error Details"
+        },
+        "reputation": {
+            "title": "Domain Reputation",
+            "subtitle": "Sender domain status on DNS blacklists",
+            "clean": "Clean",
+            "warning": "Warning",
+            "critical": "Blacklisted!",
+            "unchecked": "Unchecked",
+            "check_now": "Check Reputation",
+            "checking": "Checking...",
+            "last_checked": "Last checked",
+            "listed_on": "Listed on",
+            "not_listed": "Not listed",
+            "lookup_url": "Check / Delist",
+            "domain": "Domain",
+            "severity": "Severity",
+            "severity_critical": "Critical",
+            "severity_high": "High",
+            "severity_medium": "Medium",
+            "severity_low": "Low",
+            "modal_title": "Domain Reputation — Details",
+            "blacklist_name": "Blacklist",
+            "status": "Status",
+            "listed": "Listed",
+            "clean_label": "OK",
+            "summary_clean": "Domain is clean — not detected on any blacklist.",
+            "summary_warning": "Domain detected on {count} low/medium priority blacklist(s).",
+            "summary_critical": "WARNING: Domain is on {count} critical blacklist(s)! Email delivery may be blocked.",
+            "never_checked": "Never checked"
         }
     },
     "funnels": {
