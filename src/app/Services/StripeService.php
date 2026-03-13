@@ -326,4 +326,86 @@ class StripeService
     {
         return $this->settings['publishable_key'] ?? null;
     }
+
+    /**
+     * Sync products from Stripe to local database.
+     */
+    public function syncProducts(int $userId): array
+    {
+        $synced = 0;
+        $created = 0;
+        $updated = 0;
+
+        try {
+            // Fetch all active products from Stripe
+            $products = Product::all(['active' => true, 'limit' => 100]);
+
+            foreach ($products->data as $stripeProduct) {
+                // Get the default/active price for this product
+                $prices = Price::all([
+                    'product' => $stripeProduct->id,
+                    'active' => true,
+                    'limit' => 1,
+                ]);
+
+                $stripePrice = $prices->data[0] ?? null;
+
+                if (!$stripePrice) {
+                    continue; // Skip products without active prices
+                }
+
+                // Determine type
+                $type = $stripePrice->recurring ? 'subscription' : 'one_time';
+
+                // Check if product already exists locally
+                $existingProduct = StripeProduct::where('stripe_product_id', $stripeProduct->id)
+                    ->where('user_id', $userId)
+                    ->withTrashed()
+                    ->first();
+
+                $productData = [
+                    'user_id' => $userId,
+                    'stripe_product_id' => $stripeProduct->id,
+                    'stripe_price_id' => $stripePrice->id,
+                    'name' => $stripeProduct->name,
+                    'description' => $stripeProduct->description,
+                    'price' => $stripePrice->unit_amount,
+                    'currency' => strtoupper($stripePrice->currency),
+                    'type' => $type,
+                    'is_active' => true,
+                ];
+
+                if ($existingProduct) {
+                    $existingProduct->restore();
+                    $existingProduct->update($productData);
+                    $updated++;
+                } else {
+                    StripeProduct::create($productData);
+                    $created++;
+                }
+
+                $synced++;
+            }
+
+            Log::info('Stripe products synced', [
+                'user_id' => $userId,
+                'synced' => $synced,
+                'created' => $created,
+                'updated' => $updated,
+            ]);
+
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe products sync failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $userId,
+            ]);
+            throw $e;
+        }
+
+        return [
+            'synced' => $synced,
+            'created' => $created,
+            'updated' => $updated,
+        ];
+    }
 }

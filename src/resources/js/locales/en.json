@@ -5184,7 +5184,11 @@
         "webhook_setup_step2": "Click 'Add endpoint' and paste the URL above",
         "webhook_setup_step3": "Select events to listen to (list below) and copy the Signing secret",
         "webhook_events_title": "Required events (select when creating webhook):",
-        "webhook_open_stripe": "Open Stripe Webhooks Configuration"
+        "webhook_open_stripe": "Open Stripe Webhooks Configuration",
+        "sync_from_stripe": "Sync from Stripe",
+        "syncing": "Syncing...",
+        "sync_success": "Synced {synced} products ({created} new, {updated} updated).",
+        "sync_failed": "Sync failed"
     },
     "polar": {
         "title": "Polar",
@@ -5250,7 +5254,15 @@
         "confirm_delete": "Are you sure you want to delete this product?",
         "product_created": "Product created.",
         "product_updated": "Product updated.",
-        "product_deleted": "Product deleted."
+        "product_deleted": "Product deleted.",
+        "edit_product": "Edit Product",
+        "is_active": "Product Active",
+        "description": "Description",
+        "sync_from_polar": "Sync from Polar",
+        "syncing": "Syncing...",
+        "sync_success": "Synced {synced} products ({created} new, {updated} updated).",
+        "sync_failed": "Sync failed",
+        "checkout_url_failed": "Failed to generate checkout link."
     },
     "tpay": {
         "settings_title": "Tpay Integration",

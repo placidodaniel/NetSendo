@@ -599,6 +599,7 @@ Route::middleware(['auth', '2fa'])->group(function () {
     Route::prefix('settings/stripe-products')->name('settings.stripe-products.')->group(function () {
         Route::get('/', [\App\Http\Controllers\StripeProductController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\StripeProductController::class, 'store'])->name('store');
+        Route::post('/sync', [\App\Http\Controllers\StripeProductController::class, 'sync'])->name('sync');
         Route::put('/{product}', [\App\Http\Controllers\StripeProductController::class, 'update'])->name('update');
         Route::delete('/{product}', [\App\Http\Controllers\StripeProductController::class, 'destroy'])->name('destroy');
         Route::get('/{product}/transactions', [\App\Http\Controllers\StripeProductController::class, 'transactions'])->name('transactions');
@@ -649,6 +650,7 @@ Route::middleware(['auth', '2fa'])->group(function () {
     Route::prefix('settings/polar-products')->name('settings.polar-products.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PolarProductController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\PolarProductController::class, 'store'])->name('store');
+        Route::post('/sync', [\App\Http\Controllers\PolarProductController::class, 'sync'])->name('sync');
         Route::put('/{product}', [\App\Http\Controllers\PolarProductController::class, 'update'])->name('update');
         Route::delete('/{product}', [\App\Http\Controllers\PolarProductController::class, 'destroy'])->name('destroy');
         Route::get('/{product}/transactions', [\App\Http\Controllers\PolarProductController::class, 'transactions'])->name('transactions');

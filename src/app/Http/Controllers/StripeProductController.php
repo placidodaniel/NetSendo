@@ -79,6 +79,32 @@ class StripeProductController extends Controller
     }
 
     /**
+     * Sync products from Stripe.
+     */
+    public function sync()
+    {
+        if (!$this->stripeService->isConfigured()) {
+            return back()->withErrors(['error' => __('stripe.not_configured')]);
+        }
+
+        try {
+            $result = $this->stripeService->syncProducts(Auth::id());
+
+            $message = __('stripe.sync_success', [
+                'synced' => $result['synced'],
+                'created' => $result['created'],
+                'updated' => $result['updated'],
+            ]);
+
+            return redirect()->route('settings.stripe-products.index')
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => __('stripe.sync_failed') . ': ' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * Update the specified Stripe product.
      */
     public function update(Request $request, StripeProduct $product)

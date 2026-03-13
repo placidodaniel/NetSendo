@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.5] – Short Description
+
+**Release date:** 2026-03-13
+
 ### Added
 
 - **IMAP Bounce Mailbox Monitor:**
@@ -34,6 +38,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - **API Endpoint:** New `POST /mailboxes/{mailbox}/check-reputation` for manual on-demand reputation checks from the UI.
   - **Frontend UI:** Added reputation status badge (✅ Clean / ⚠️ Warning / 🔴 Blacklisted) to mailbox cards, shield button for manual checks, and a detailed results modal showing per-blacklist status with severity levels and delist URLs.
   - **Localization:** Full translations for reputation monitoring UI in PL, EN, DE, ES.
+
+- **Stripe — Sync Products from Dashboard:**
+  - Added `syncProducts()` method to `StripeService` that fetches all active products and their prices from Stripe API and imports/updates them in the local database, matching by `stripe_product_id`.
+  - Added `sync()` action in `StripeProductController` with success/error flash messages.
+  - Added `POST /settings/stripe-products/sync` route.
+  - Added "Sync from Stripe" button with animated loading spinner to `StripeProducts/Index.vue` (header and empty state).
+  - Localization: Added `sync_from_stripe`, `syncing`, `sync_success`, `sync_failed` translation keys in PL, EN.
+
+### Fixed
+
+- **Polar — Product Creation Not Working:**
+  - Fixed `PolarService::createProduct()` which incorrectly used a two-step API approach (create product, then create price separately via `/v1/prices`). The Polar API requires prices to be included inline within the product creation payload as a `prices` array. Rewrote to use a single API call with inline prices.
+  - Fixed missing `recurring_interval` field at the product level for subscription products.
+  - Fixed `createCheckoutSession()` using deprecated payload structure — updated to use `/v1/checkouts/custom/` endpoint with correct parameters.
+  - Added `Content-Type: application/json` header to all Polar API requests.
+  - Improved error extraction from Polar API responses to display user-friendly error messages.
+  - Added `syncProducts()` method to import existing products from Polar dashboard to local database.
+  - Added `getProduct()` method for fetching single product details from Polar API.
+  - Added `sync()` action in `PolarProductController` with `POST /settings/polar-products/sync` route.
+  - Updated `PolarProducts/Index.vue`: added API error display in create modal, "Sync from Polar" button with loading spinner, edit modal for products, flash messages, and loading states.
+  - Enhanced `updateProduct()` to handle price changes (creating new prices) and product archiving.
+  - Localization: Added `edit_product`, `is_active`, `description`, `sync_from_polar`, `syncing`, `sync_success`, `sync_failed`, `checkout_url_failed` translation keys in PL, EN.
 
 ### Changed
 

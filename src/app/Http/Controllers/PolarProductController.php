@@ -93,6 +93,30 @@ class PolarProductController extends Controller
     }
 
     /**
+     * Sync products from Polar API.
+     */
+    public function sync()
+    {
+        if (!$this->polarService->isConfigured()) {
+            return back()->withErrors(['polar' => __('polar.not_configured')]);
+        }
+
+        try {
+            $result = $this->polarService->syncProducts(auth()->id());
+
+            $message = __('polar.sync_success', [
+                'synced' => $result['synced'],
+                'created' => $result['created'],
+                'updated' => $result['updated'],
+            ]);
+
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->withErrors(['polar' => __('polar.sync_failed') . ': ' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * Get transactions for a specific product.
      */
     public function transactions(PolarProduct $product)

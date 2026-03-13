@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, useForm, Link } from "@inertiajs/vue3";
+import { Head, useForm, Link, router } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
 import { ref, computed } from "vue";
 import axios from "axios";
@@ -20,11 +20,13 @@ const props = defineProps({
 const productsList = computed(() => props.products?.data || []);
 
 const showCreateModal = ref(false);
+const showEditModal = ref(false);
 const showCheckoutModal = ref(false);
 const checkoutUrl = ref(null);
 const generatingUrl = ref(false);
 const selectedProduct = ref(null);
 const activeTab = ref('products');
+const syncing = ref(false);
 
 const createForm = useForm({
     name: "",
@@ -33,6 +35,12 @@ const createForm = useForm({
     currency: "USD",
     type: "one_time",
     billing_interval: "month",
+});
+
+const editForm = useForm({
+    name: "",
+    description: "",
+    is_active: true,
 });
 
 const createProduct = () => {
@@ -48,12 +56,41 @@ const createProduct = () => {
     });
 };
 
+const openEditModal = (product) => {
+    selectedProduct.value = product;
+    editForm.name = product.name;
+    editForm.description = product.description || "";
+    editForm.is_active = product.is_active;
+    showEditModal.value = true;
+};
+
+const updateProduct = () => {
+    editForm.put(route("settings.polar-products.update", selectedProduct.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showEditModal.value = false;
+            editForm.reset();
+            selectedProduct.value = null;
+        },
+    });
+};
+
 const deleteProduct = (product) => {
     if (confirm(t("polar.confirm_delete"))) {
         useForm({}).delete(route("settings.polar-products.destroy", product.id), {
             preserveScroll: true,
         });
     }
+};
+
+const syncProducts = () => {
+    syncing.value = true;
+    router.post(route("settings.polar-products.sync"), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            syncing.value = false;
+        },
+    });
 };
 
 const getCheckoutUrl = async (product) => {
@@ -95,16 +132,29 @@ const formatPrice = (price, currency) => {
                 <h2 class="text-xl font-semibold leading-tight text-white">
                     {{ $t("polar.products_title") }}
                 </h2>
-                <button
-                    v-if="isConfigured"
-                    @click="showCreateModal = true"
-                    class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
-                >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    {{ $t("polar.create_product") }}
-                </button>
+                <div class="flex items-center gap-3">
+                    <button
+                        v-if="isConfigured"
+                        @click="syncProducts"
+                        :disabled="syncing"
+                        class="inline-flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                    >
+                        <svg class="h-4 w-4" :class="{ 'animate-spin': syncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {{ syncing ? $t('polar.syncing') : $t('polar.sync_from_polar') }}
+                    </button>
+                    <button
+                        v-if="isConfigured"
+                        @click="showCreateModal = true"
+                        class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        {{ $t("polar.create_product") }}
+                    </button>
+                </div>
             </div>
         </template>
 
@@ -122,6 +172,26 @@ const formatPrice = (price, currency) => {
                                 {{ $t("polar.go_to_settings") }}
                             </Link>
                         </p>
+                    </div>
+                </div>
+
+                <!-- Success Message -->
+                <div v-if="$page.props.flash?.success" class="mb-6 rounded-xl bg-emerald-500/10 p-4 ring-1 ring-emerald-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="h-5 w-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p class="text-emerald-400">{{ $page.props.flash.success }}</p>
+                    </div>
+                </div>
+
+                <!-- Global Error Message -->
+                <div v-if="$page.props.errors?.polar" class="mb-6 rounded-xl bg-red-500/10 p-4 ring-1 ring-red-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-red-400">{{ $page.props.errors.polar }}</p>
                     </div>
                 </div>
 
@@ -165,13 +235,26 @@ const formatPrice = (price, currency) => {
                         </div>
                         <h3 class="text-lg font-semibold text-white mb-2">{{ $t("polar.no_products") }}</h3>
                         <p class="text-slate-400 mb-6">{{ $t("polar.no_products_desc") }}</p>
-                        <button
-                            v-if="isConfigured"
-                            @click="showCreateModal = true"
-                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
-                        >
-                            {{ $t("polar.create_first_product") }}
-                        </button>
+                        <div class="flex items-center justify-center gap-3">
+                            <button
+                                v-if="isConfigured"
+                                @click="syncProducts"
+                                :disabled="syncing"
+                                class="inline-flex items-center gap-2 rounded-xl bg-slate-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                            >
+                                <svg class="h-4 w-4" :class="{ 'animate-spin': syncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {{ $t('polar.sync_from_polar') }}
+                            </button>
+                            <button
+                                v-if="isConfigured"
+                                @click="showCreateModal = true"
+                                class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
+                            >
+                                {{ $t("polar.create_first_product") }}
+                            </button>
+                        </div>
                     </div>
 
                     <table v-else class="w-full">
@@ -210,6 +293,15 @@ const formatPrice = (price, currency) => {
                                         >
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            @click="openEditModal(product)"
+                                            class="p-2 rounded-lg bg-slate-500/10 text-slate-400 hover:bg-slate-500/20"
+                                            :title="$t('common.edit')"
+                                        >
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
                                         <button
@@ -254,9 +346,14 @@ const formatPrice = (price, currency) => {
                             </button>
                         </div>
                         <form @submit.prevent="createProduct" class="p-6 space-y-4">
+                            <!-- API Error Display -->
+                            <div v-if="createForm.errors.polar" class="rounded-lg bg-red-500/10 p-3 ring-1 ring-red-500/20">
+                                <p class="text-sm text-red-400">{{ createForm.errors.polar }}</p>
+                            </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.product_name") }} *</label>
                                 <input v-model="createForm.name" type="text" required class="w-full rounded-lg border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-blue-500 focus:ring-blue-500" />
+                                <p v-if="createForm.errors.name" class="mt-1 text-sm text-red-400">{{ createForm.errors.name }}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.description") }}</label>
@@ -266,6 +363,7 @@ const formatPrice = (price, currency) => {
                                 <div>
                                     <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.price") }} *</label>
                                     <input v-model="createForm.price" type="number" step="0.01" min="0.01" required class="w-full rounded-lg border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-blue-500 focus:ring-blue-500" />
+                                    <p v-if="createForm.errors.price" class="mt-1 text-sm text-red-400">{{ createForm.errors.price }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.currency") }}</label>
@@ -296,7 +394,62 @@ const formatPrice = (price, currency) => {
                                     {{ $t("common.cancel") }}
                                 </button>
                                 <button type="submit" :disabled="createForm.processing" class="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
-                                    {{ $t("common.create") }}
+                                    <svg v-if="createForm.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {{ createForm.processing ? $t('common.creating') : $t("common.create") }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
+
+        <!-- Edit Product Modal -->
+        <Teleport to="body">
+            <Transition name="modal">
+                <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showEditModal = false"></div>
+                    <div class="relative w-full max-w-lg rounded-2xl bg-slate-800 shadow-2xl ring-1 ring-white/10">
+                        <div class="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+                            <h3 class="text-lg font-semibold text-white">{{ $t("polar.edit_product") }}</h3>
+                            <button @click="showEditModal = false" class="rounded-lg p-1 text-slate-400 hover:bg-slate-700 hover:text-white">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <form @submit.prevent="updateProduct" class="p-6 space-y-4">
+                            <div v-if="editForm.errors.polar" class="rounded-lg bg-red-500/10 p-3 ring-1 ring-red-500/20">
+                                <p class="text-sm text-red-400">{{ editForm.errors.polar }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.product_name") }} *</label>
+                                <input v-model="editForm.name" type="text" required class="w-full rounded-lg border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-blue-500 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-1">{{ $t("polar.description") }}</label>
+                                <textarea v-model="editForm.description" rows="3" class="w-full rounded-lg border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-blue-500 focus:ring-blue-500"></textarea>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" v-model="editForm.is_active" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-600 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                                <span class="text-sm text-slate-300">{{ $t("polar.is_active") }}</span>
+                            </div>
+                            <div class="flex items-center justify-end gap-3 pt-4">
+                                <button type="button" @click="showEditModal = false" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white">
+                                    {{ $t("common.cancel") }}
+                                </button>
+                                <button type="submit" :disabled="editForm.processing" class="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
+                                    <svg v-if="editForm.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {{ $t("common.save") }}
                                 </button>
                             </div>
                         </form>

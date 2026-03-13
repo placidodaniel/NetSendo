@@ -51,17 +51,43 @@ class PolarService
     {
         $url = $this->baseUrl . $endpoint;
 
-        $response = Http::withToken($this->accessToken)
+        $request = Http::withToken($this->accessToken)
             ->accept('application/json')
-            ->$method($url, $data);
+            ->contentType('application/json');
+
+        if ($method === 'get') {
+            $response = $request->get($url, $data);
+        } else {
+            $response = $request->$method($url, $data);
+        }
 
         if (!$response->successful()) {
+            $body = $response->json();
+            $errorMessage = 'Polar API error';
+
+            // Extract user-friendly error message from Polar response
+            if (isset($body['detail'])) {
+                if (is_array($body['detail'])) {
+                    // Validation errors array
+                    $messages = collect($body['detail'])->map(function ($err) {
+                        $field = is_array($err['loc'] ?? null) ? implode('.', $err['loc']) : '';
+                        return $field ? "{$field}: {$err['msg']}" : ($err['msg'] ?? '');
+                    })->filter()->implode('; ');
+                    $errorMessage = $messages ?: $errorMessage;
+                } else {
+                    $errorMessage = $body['detail'];
+                }
+            }
+
             Log::error('Polar API error', [
                 'endpoint' => $endpoint,
+                'method' => $method,
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'data_sent' => $data,
             ]);
-            throw new \Exception('Polar API error: ' . $response->body());
+
+            throw new \Exception($errorMessage);
         }
 
         return $response->json() ?? [];
@@ -72,48 +98,49 @@ class PolarService
      */
     public function createProduct(int $userId, array $data): PolarProduct
     {
-        // Build product payload for Polar API
-        $productPayload = [
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-        ];
-
-        // Create product in Polar
-        $polarProduct = $this->apiRequest('post', '/v1/products', $productPayload);
-
-        // Build price payload
-        $pricePayload = [
-            'product_id' => $polarProduct['id'],
+        // Build price object (inline in product payload)
+        $priceCreate = [
+            'type' => 'fixed',
             'amount_type' => 'fixed',
-            'price_amount' => $data['price'],
+            'price_amount' => (int) $data['price'],
             'price_currency' => strtolower($data['currency'] ?? 'usd'),
         ];
 
-        if ($data['type'] === 'recurring') {
-            $pricePayload['type'] = 'recurring';
-            $pricePayload['recurring_interval'] = $data['billing_interval'] ?? 'month';
-        } else {
-            $pricePayload['type'] = 'one_time';
+        // Build product payload with inline prices
+        $productPayload = [
+            'name' => $data['name'],
+            'prices' => [$priceCreate],
+        ];
+
+        if (!empty($data['description'])) {
+            $productPayload['description'] = $data['description'];
         }
 
-        // Create price in Polar
-        $polarPrice = $this->apiRequest('post', '/v1/prices', $pricePayload);
+        // Set recurring_interval on the PRODUCT level (Polar API requirement)
+        if (($data['type'] ?? 'one_time') === 'recurring') {
+            $productPayload['recurring_interval'] = $data['billing_interval'] ?? 'month';
+        }
+
+        // Create product in Polar (single API call with prices inline)
+        $polarProduct = $this->apiRequest('post', '/v1/products', $productPayload);
+
+        // Extract the price ID from the response
+        $priceId = $polarProduct['prices'][0]['id'] ?? null;
 
         // Save locally
         return PolarProduct::create([
             'user_id' => $userId,
             'polar_product_id' => $polarProduct['id'],
-            'polar_price_id' => $polarPrice['id'],
+            'polar_price_id' => $priceId,
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
-            'price' => $data['price'],
+            'price' => (int) $data['price'],
             'currency' => strtoupper($data['currency'] ?? 'USD'),
             'type' => $data['type'] ?? 'one_time',
             'billing_interval' => $data['billing_interval'] ?? null,
             'is_active' => true,
             'metadata' => [
                 'polar_product' => $polarProduct,
-                'polar_price' => $polarPrice,
             ],
         ]);
     }
@@ -130,21 +157,35 @@ class PolarService
             if (isset($data['name'])) {
                 $updatePayload['name'] = $data['name'];
             }
-            if (isset($data['description'])) {
+            if (array_key_exists('description', $data)) {
                 $updatePayload['description'] = $data['description'];
+            }
+            if (isset($data['is_active']) && !$data['is_active']) {
+                $updatePayload['is_archived'] = true;
             }
 
             if (!empty($updatePayload)) {
-                $this->apiRequest('patch', '/v1/products/' . $product->polar_product_id, $updatePayload);
+                $polarProduct = $this->apiRequest('patch', '/v1/products/' . $product->polar_product_id, $updatePayload);
+
+                // Update the price ID from response if available
+                if (!empty($polarProduct['prices'][0]['id'])) {
+                    $data['polar_price_id'] = $polarProduct['prices'][0]['id'];
+                }
             }
         }
 
         // Update locally
-        $product->update([
+        $updateData = [
             'name' => $data['name'] ?? $product->name,
             'description' => $data['description'] ?? $product->description,
             'is_active' => $data['is_active'] ?? $product->is_active,
-        ]);
+        ];
+
+        if (isset($data['polar_price_id'])) {
+            $updateData['polar_price_id'] = $data['polar_price_id'];
+        }
+
+        $product->update($updateData);
 
         return $product->fresh();
     }
@@ -182,7 +223,6 @@ class PolarService
         $checkoutPayload = [
             'product_price_id' => $product->polar_price_id,
             'success_url' => $options['success_url'] ?? url('/checkout/success'),
-            'cancel_url' => $options['cancel_url'] ?? url('/checkout/cancel'),
         ];
 
         if (!empty($options['customer_email'])) {
@@ -197,7 +237,7 @@ class PolarService
             $checkoutPayload['metadata'] = $options['metadata'];
         }
 
-        $checkout = $this->apiRequest('post', '/v1/checkouts', $checkoutPayload);
+        $checkout = $this->apiRequest('post', '/v1/checkouts/custom/', $checkoutPayload);
 
         Log::info('Polar checkout session created', [
             'product_id' => $product->id,
@@ -393,6 +433,85 @@ class PolarService
     public function listProducts(): array
     {
         return $this->apiRequest('get', '/v1/products');
+    }
+
+    /**
+     * Get a single product from Polar API.
+     */
+    public function getProduct(string $polarProductId): array
+    {
+        return $this->apiRequest('get', '/v1/products/' . $polarProductId);
+    }
+
+    /**
+     * Sync products from Polar API to local database.
+     */
+    public function syncProducts(int $userId): array
+    {
+        $response = $this->listProducts();
+        $polarProducts = $response['items'] ?? $response['result'] ?? ($response['id'] ? [$response] : []);
+
+        $synced = 0;
+        $created = 0;
+        $updated = 0;
+
+        foreach ($polarProducts as $polarProduct) {
+            if ($polarProduct['is_archived'] ?? false) {
+                continue;
+            }
+
+            $existingProduct = PolarProduct::where('polar_product_id', $polarProduct['id'])
+                ->where('user_id', $userId)
+                ->withTrashed()
+                ->first();
+
+            $priceData = $polarProduct['prices'][0] ?? null;
+            $priceId = $priceData['id'] ?? null;
+            $priceAmount = $priceData['price_amount'] ?? 0;
+            $priceCurrency = strtoupper($priceData['price_currency'] ?? 'USD');
+
+            $isRecurring = $polarProduct['is_recurring'] ?? false;
+            $type = $isRecurring ? 'recurring' : 'one_time';
+            $billingInterval = $polarProduct['recurring_interval'] ?? null;
+
+            $productData = [
+                'user_id' => $userId,
+                'polar_product_id' => $polarProduct['id'],
+                'polar_price_id' => $priceId,
+                'name' => $polarProduct['name'],
+                'description' => $polarProduct['description'] ?? null,
+                'price' => (int) $priceAmount,
+                'currency' => $priceCurrency,
+                'type' => $type,
+                'billing_interval' => $billingInterval,
+                'is_active' => true,
+                'metadata' => ['polar_product' => $polarProduct],
+            ];
+
+            if ($existingProduct) {
+                $existingProduct->restore();
+                $existingProduct->update($productData);
+                $updated++;
+            } else {
+                PolarProduct::create($productData);
+                $created++;
+            }
+
+            $synced++;
+        }
+
+        Log::info('Polar products synced', [
+            'user_id' => $userId,
+            'synced' => $synced,
+            'created' => $created,
+            'updated' => $updated,
+        ]);
+
+        return [
+            'synced' => $synced,
+            'created' => $created,
+            'updated' => $updated,
+        ];
     }
 
     /**

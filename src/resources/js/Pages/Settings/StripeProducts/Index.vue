@@ -27,6 +27,7 @@ const transactionsLoading = ref(false);
 const checkoutUrl = ref(null);
 const copySuccess = ref(false);
 const activeTab = ref('products');
+const syncing = ref(false);
 
 // Forms
 const createForm = useForm({
@@ -189,6 +190,16 @@ async function getCheckoutUrl(product) {
         console.error("Failed to get checkout URL", e);
     }
 }
+
+function syncProducts() {
+    syncing.value = true;
+    router.post(route("settings.stripe-products.sync"), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            syncing.value = false;
+        },
+    });
+}
 </script>
 
 <template>
@@ -200,16 +211,29 @@ async function getCheckoutUrl(product) {
                 <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100">
                     💳 {{ t("stripe.products") }}
                 </h2>
-                <button
-                    v-if="isConfigured"
-                    @click="openCreateModal"
-                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors flex items-center gap-2"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    {{ t("stripe.add_product") }}
-                </button>
+                <div class="flex items-center gap-3">
+                    <button
+                        v-if="isConfigured"
+                        @click="syncProducts"
+                        :disabled="syncing"
+                        class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" :class="{ 'animate-spin': syncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {{ syncing ? t('stripe.syncing') : t('stripe.sync_from_stripe') }}
+                    </button>
+                    <button
+                        v-if="isConfigured"
+                        @click="openCreateModal"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors flex items-center gap-2"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        {{ t("stripe.add_product") }}
+                    </button>
+                </div>
             </div>
         </template>
 
@@ -283,13 +307,26 @@ async function getCheckoutUrl(product) {
                         <p class="mt-4 text-gray-500 dark:text-gray-400">
                             {{ t("stripe.no_products") }}
                         </p>
-                        <button
-                            v-if="isConfigured"
-                            @click="openCreateModal"
-                            class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors"
-                        >
-                            {{ t("stripe.add_first_product") }}
-                        </button>
+                        <div class="flex items-center justify-center gap-3 mt-4">
+                            <button
+                                v-if="isConfigured"
+                                @click="syncProducts"
+                                :disabled="syncing"
+                                class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            >
+                                <svg class="w-4 h-4" :class="{ 'animate-spin': syncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {{ t('stripe.sync_from_stripe') }}
+                            </button>
+                            <button
+                                v-if="isConfigured"
+                                @click="openCreateModal"
+                                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors"
+                            >
+                                {{ t("stripe.add_first_product") }}
+                            </button>
+                        </div>
                     </div>
 
                     <table v-else class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

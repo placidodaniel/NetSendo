@@ -4567,7 +4567,11 @@
         "webhook_setup_step2": "Haz clic en 'Add endpoint' y pega la URL de arriba",
         "webhook_setup_step3": "Selecciona los eventos a escuchar (lista abajo) y copia el Signing secret",
         "webhook_events_title": "Eventos requeridos (seleccionar al crear el webhook):",
-        "webhook_open_stripe": "Abrir configuración de webhooks en Stripe"
+        "webhook_open_stripe": "Abrir configuración de webhooks en Stripe",
+        "sync_from_stripe": "Sincronizar desde Stripe",
+        "syncing": "Sincronizando...",
+        "sync_success": "Sincronizados {synced} productos ({created} nuevos, {updated} actualizados).",
+        "sync_failed": "La sincronización ha fallado"
     },
     "polar": {
         "title": "Polar",
@@ -4633,7 +4637,15 @@
         "confirm_delete": "¿Estás seguro de que quieres eliminar este producto?",
         "product_created": "Producto creado.",
         "product_updated": "Producto actualizado.",
-        "product_deleted": "Producto eliminado."
+        "product_deleted": "Producto eliminado.",
+        "edit_product": "Editar producto",
+        "is_active": "Producto activo",
+        "description": "Descripción",
+        "sync_from_polar": "Sincronizar desde Polar",
+        "syncing": "Sincronizando...",
+        "sync_success": "Sincronizados {synced} productos ({created} nuevos, {updated} actualizados).",
+        "sync_failed": "La sincronización ha fallado",
+        "checkout_url_failed": "Error al generar el enlace de pago."
     },
     "tpay": {
         "settings_title": "Integración Tpay",
