@@ -1,35 +1,35 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ""
+name: 🐛 Bug Report
+about: Something isn't working as expected
+title: '[BUG] '
 labels: bug
-assignees: ""
+assignees: ''
 ---
 
-### Bug description
+## 🐛 Bug Description
+A clear description of the bug.
 
-Short and clear description of the problem.
-
-### Steps to reproduce
-
+## 🔄 Steps to Reproduce
 1. Go to '...'
 2. Click on '...'
 3. See error
 
-### Expected behavior
+## ✅ Expected Behavior
+What you expected to happen.
 
-What should happen?
+## ❌ Actual Behavior
+What actually happened.
 
-### Actual behavior
+## 📸 Screenshots / Logs
+```
+paste logs here
+```
 
-What actually happens?
+## 🌍 Environment
+- NetSendo version: (check VERSION file)
+- OS: 
+- Docker version: 
+- Browser (if UI issue): 
 
-### Environment
-
-- OS:
-- Browser:
-- App version:
-
-### Screenshots / logs
-
-(if applicable)
+## 📋 Additional Context
+Any other relevant information.
