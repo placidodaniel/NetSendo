@@ -11,6 +11,8 @@
 [![Laravel](https://img.shields.io/badge/Laravel-12-red.svg)](https://laravel.com)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3-green.svg)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-Proprietary-orange.svg)](LICENSE)
+[![Contributing](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![GitHub Stars](https://img.shields.io/github/stars/NetSendo/NetSendo?style=social)](https://github.com/NetSendo/NetSendo/stargazers)
 
 [📖 Documentation](https://docs.netsendo.com) • [🎓 Courses](https://netsendo.com/courses) • [💬 Forum](https://forum.netsendo.com) • [🐛 Report Bug](https://support.netsendo.com)
 
@@ -524,6 +526,26 @@ WebSocket connection to 'ws://localhost:8080/app/...' failed
 - 📧 **Email**: support@netsendo.com
 
 ---
+
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Whether it's fixing bugs, improving documentation, or adding new features.
+
+👉 **[Read our Contributing Guide](CONTRIBUTING.md)** to get started.
+
+### Quick ways to help:
+- ⭐ **Star this repo** — helps others discover NetSendo
+- 🐛 **Report bugs** — [open an issue](https://github.com/NetSendo/NetSendo/issues/new)
+- 📝 **Improve docs** — fix typos, add examples
+- 🌍 **Translate** — help with [translations](TRANSLATIONS.md)
+
+### Community
+- [💬 Telegram](https://t.me/netsendo) — questions & discussions
+- [📖 Forum](https://forum.netsendo.com) — longer conversations
+- [🎓 Courses](https://netsendo.com/courses) — learn NetSendo
 
 ## 📄 License
 
