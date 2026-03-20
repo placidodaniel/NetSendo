@@ -44,6 +44,12 @@ return [
             'flag' => '🇵🇱',
             'rtl' => false,
         ],
+        'pt_BR' => [
+            'name' => 'Portuguese (Brazil)',
+            'native' => 'Português (Brasil)',
+            'flag' => '🇧🇷',
+            'rtl' => false,
+        ],
     ],
 
     /*

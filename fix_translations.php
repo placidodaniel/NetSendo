@@ -1,5 +1,5 @@
 <?php
-$locales = ['en', 'pl', 'de', 'es'];
+$locales = ['en', 'pl', 'de', 'es', 'pt_BR'];
 $baseDir = __DIR__ . '/src';
 
 foreach ($locales as $locale) {
@@ -17,17 +17,17 @@ foreach ($locales as $locale) {
     if (!isset($jsonData['marketplace'])) {
         $jsonData['marketplace'] = [];
     }
-    
+
     // Add perplexity
     if (isset($phpData['perplexity'])) {
         $jsonData['marketplace']['perplexity'] = $phpData['perplexity'];
     }
-    
+
     // Add serpapi
     if (isset($phpData['serpapi'])) {
         $jsonData['marketplace']['serpapi'] = $phpData['serpapi'];
     }
-    
+
     // Add AI category
     if (isset($phpData['categories']['ai'])) {
         if (!isset($jsonData['marketplace']['categories'])) {

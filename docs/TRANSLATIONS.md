@@ -6,10 +6,10 @@ This document describes the translation/internationalization (i18n) system used 
 
 NetSendo uses **two separate translation systems**:
 
-| System                  | Location                          | Usage                          | Syntax      |
-| ----------------------- | --------------------------------- | ------------------------------ | ----------- |
-| **Frontend** (Vue i18n) | `src/resources/js/locales/*.json` | Vue components                 | `$t('key')` |
-| **Backend** (Laravel)   | `src/lang/{locale}/*.php`         | PHP controllers, notifications | `__('key')` |
+| System                  | Location                            | Usage                          | Syntax      |
+| ----------------------- | ----------------------------------- | ------------------------------ | ----------- |
+| **Frontend** (Vue i18n) | `src/resources/js/locales/*.json`  | Vue components                 | `$t('key')` |
+| **Backend** (Laravel)   | `src/lang/{locale}/` (e.g., `pt_BR/`) | PHP controllers, notifications | `__('key')` |
 
 ### Supported Languages
 
@@ -17,6 +17,7 @@ NetSendo uses **two separate translation systems**:
 - 🇬🇧 **en** - English
 - 🇩🇪 **de** - German
 - 🇪🇸 **es** - Spanish
+- 🇧🇷 **pt_BR** - Portuguese (Brazil)
 
 ---
 
@@ -26,10 +27,11 @@ NetSendo uses **two separate translation systems**:
 
 ```
 src/resources/js/locales/
-├── pl.json     # Polish translations
-├── en.json     # English translations
-├── de.json     # German translations
-└── es.json     # Spanish translations
+├── pl.json       # Polish translations
+├── en.json       # English translations
+├── de.json       # German translations
+├── es.json       # Spanish translations
+└── pt_BR.json    # Portuguese (Brazil) translations
 ```
 
 ### Usage in Vue Components
@@ -106,7 +108,9 @@ src/lang/
 │   └── ...
 ├── de/
 │   └── ...
-└── es/
+├── es/
+│   └── ...
+└── pt_BR/
     └── ...
 ```
 
@@ -137,7 +141,7 @@ __('auth.login_success')
 
 ### Frontend (Vue i18n)
 
-1. Add the key to **all 4 locale files** (`pl.json`, `en.json`, `de.json`, `es.json`)
+1. Add the key to **all 5 locale files** (`pl.json`, `en.json`, `de.json`, `es.json`, `pt_BR.json`)
 2. Follow the existing namespace structure
 3. Start with Polish as the primary language
 
@@ -199,7 +203,7 @@ done
 
 ## Best Practices
 
-1. **Always translate to all 4 languages** when adding new keys
+1. **Always translate to all 5 languages** when adding new keys
 2. **Use meaningful namespaces** - e.g., `mailing_lists.create_title` not just `create_title`
 3. **Avoid duplicate keys** - Run the checker before committing
 4. **Use placeholders** instead of string concatenation

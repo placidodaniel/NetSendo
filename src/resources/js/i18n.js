@@ -10,11 +10,12 @@ import en from './locales/en.json';
 import de from './locales/de.json';
 import es from './locales/es.json';
 import pl from './locales/pl.json';
+import pt_BR from './locales/pt_BR.json';
 
 /**
  * Create and configure vue-i18n instance
  *
- * @param {string} locale - Initial locale code (en, de, es, pl)
+ * @param {string} locale - Initial locale code (en, de, es, pl, pt_BR)
  * @returns {I18n} Configured i18n instance
  */
 export function setupI18n(locale = 'en') {
@@ -27,6 +28,7 @@ export function setupI18n(locale = 'en') {
             de,
             es,
             pl,
+            pt_BR,
         },
         // Suppress missing translation warnings in production
         missingWarn: import.meta.env.DEV,
