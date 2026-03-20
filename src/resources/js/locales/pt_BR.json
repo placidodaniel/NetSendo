@@ -3669,15 +3669,15 @@
         }
     },
     "language": {
-        "select": "Select Language",
-        "current": "Current Language"
+        "select": "Selecionar Idioma",
+        "current": "Idioma Atual"
     },
     "help_menu": {
-        "title": "Help & Resources",
-        "quick_start": "Quick Start",
-        "documentation": "Documentation",
-        "api_reference": "API Reference",
-        "community_forum": "Community Forum",
+        "title": "Ajuda e Recursos",
+        "quick_start": "Início Rápido",
+        "documentation": "Documentação",
+        "api_reference": "Referência da API",
+        "community_forum": "Fórum da Comunidade",
         "telegram": "Official Telegram Channel",
         "courses_training": "Courses & Training",
         "report_bug": "Report a Bug",

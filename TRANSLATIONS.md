@@ -13,6 +13,7 @@ The frontend application (Vue.js/Inertia) uses **JSON** files for translations.
   - `en.json` (English)
   - `es.json` (Spanish)
   - `de.json` (German)
+  - `pt_BR.json` (Portuguese - Brazil)
 
 ## 2. Supported Languages
 
@@ -22,6 +23,7 @@ The frontend application (Vue.js/Inertia) uses **JSON** files for translations.
 | `en` | English  | Primary Secondary |
 | `es` | Spanish  | Required          |
 | `de` | German   | Required          |
+| `pt_BR` | Portuguese (Brazil) | Required          |
 
 ## 3. Workflow for Adding Translations
 
@@ -59,7 +61,7 @@ $t("crm.task.new", "Nowe zadanie");
 
 Before completing a task:
 
-1.  **Check Key Existence**: Verify that the new keys exist in **ALL 4** JSON files.
+1.  **Check Key Existence**: Verify that the new keys exist in **ALL 5** JSON files.
 2.  **Check Syntax**: Ensure valid JSON (no trailing commas, properly closed braces).
 3.  **Visual Verification**: If possible, verify the text appears correctly in the UI.
 

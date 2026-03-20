@@ -213,6 +213,15 @@ export function useDateTime() {
                 day_ago: '1 dzień temu',
                 days_ago: (n) => `${n} dni temu`,
             },
+            'pt_BR': {
+                just_now: 'agora mesmo',
+                minute_ago: 'há 1 minuto',
+                minutes_ago: (n) => `há ${n} minutos`,
+                hour_ago: 'há 1 hora',
+                hours_ago: (n) => `há ${n} horas`,
+                day_ago: 'há 1 dia',
+                days_ago: (n) => `há ${n} dias`,
+            },
         };
 
         return translations[i18nLocale] || translations['en'];
@@ -304,6 +313,11 @@ export function useDateTime() {
                 morning: 'Dzień dobry',
                 afternoon: 'Dzień dobry',
                 evening: 'Dobry wieczór',
+            },
+            'pt_BR': {
+                morning: 'Bom dia',
+                afternoon: 'Boa tarde',
+                evening: 'Boa noite',
             },
         };
 
