@@ -28,7 +28,7 @@
 
 services:
   app:
-    image: ghcr.io/danielplacido/netsendo:${NETSENDO_VERSION:-latest}
+    image: ghcr.io/danielplacido/netsendo:1
     container_name: netsendo-app
     restart: unless-stopped
     init: true
@@ -69,7 +69,7 @@ services:
         max-file: "3"
 
   scheduler:
-    image: ghcr.io/danielplacido/netsendo:${NETSENDO_VERSION:-latest}
+    image: ghcr.io/danielplacido/netsendo:1
     container_name: netsendo-scheduler
     restart: unless-stopped
     init: true
@@ -103,7 +103,7 @@ services:
         max-file: "3"
 
   queue:
-    image: ghcr.io/danielplacido/netsendo:${NETSENDO_VERSION:-latest}
+    image: ghcr.io/danielplacido/netsendo:1
     container_name: netsendo-queue
     restart: unless-stopped
     init: true
@@ -137,7 +137,7 @@ services:
         max-file: "3"
 
   reverb:
-    image: ghcr.io/danielplacido/netsendo:${NETSENDO_VERSION:-latest}
+    image: ghcr.io/danielplacido/netsendo:1
     container_name: netsendo-reverb
     restart: unless-stopped
     init: true
