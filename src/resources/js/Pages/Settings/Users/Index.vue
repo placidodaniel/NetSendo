@@ -108,7 +108,9 @@ function cancelInvitation(invitationId) {
 const { locale } = useI18n();
 function formatDateTime(dateString) {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleString(locale.value);
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Date(dateString).toLocaleString(normalizedLocale);
 }
 </script>
 

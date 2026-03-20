@@ -6,6 +6,9 @@ import { useI18n } from 'vue-i18n';
 
 const { t, locale } = useI18n();
 
+// Normalized locale for Intl compatibility (pt_BR -> pt-BR)
+const normalizedLocale = computed(() => locale.value.replace('_', '-'));
+
 const props = defineProps({
     logs: Object,
     users: Array,
@@ -186,15 +189,15 @@ const hasActiveFilters = computed(() => {
         <div class="mb-6 grid gap-4 sm:grid-cols-3">
             <div class="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-800">
                 <div class="text-sm text-slate-500 dark:text-slate-400">{{ t('settings.logs.all_entries') }}</div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats?.total?.toLocaleString(locale) || 0 }}</div>
+                <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats?.total?.toLocaleString(normalizedLocale) || 0 }}</div>
             </div>
             <div class="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-800">
                 <div class="text-sm text-slate-500 dark:text-slate-400">{{ t('settings.logs.today') }}</div>
-                <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ stats?.today?.toLocaleString(locale) || 0 }}</div>
+                <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ stats?.today?.toLocaleString(normalizedLocale) || 0 }}</div>
             </div>
             <div class="rounded-xl bg-white p-4 shadow-sm dark:bg-slate-800">
                 <div class="text-sm text-slate-500 dark:text-slate-400">{{ t('settings.logs.this_week') }}</div>
-                <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ stats?.this_week?.toLocaleString(locale) || 0 }}</div>
+                <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ stats?.this_week?.toLocaleString(normalizedLocale) || 0 }}</div>
             </div>
         </div>
 

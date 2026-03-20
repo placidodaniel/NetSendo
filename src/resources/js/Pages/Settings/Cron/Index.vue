@@ -64,7 +64,9 @@ function formatDuration(seconds) {
 function formatDateTime(dateString) {
     if (!dateString) return '-';
     const { locale } = useI18n();
-    return new Date(dateString).toLocaleString(locale.value);
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Date(dateString).toLocaleString(normalizedLocale);
 }
 
 const activeTab = ref('settings');

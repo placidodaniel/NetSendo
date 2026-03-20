@@ -6,6 +6,7 @@ const LOCALE_MAP = {
     'de': 'de-DE',
     'es': 'es-ES',
     'pl': 'pl-PL',
+    'pt-BR': 'pt-BR',
     'pt_BR': 'pt-BR',
 };
 
@@ -30,10 +31,13 @@ const getCurrentI18nLocale = () => {
 
 /**
  * Get BCP 47 locale code for date/time formatting
+ * Normalizes locale code to BCP 47 format (e.g., pt_BR -> pt-BR)
  */
 const getDateLocale = () => {
     const i18nLocale = getCurrentI18nLocale();
-    return LOCALE_MAP[i18nLocale] || LOCALE_MAP['en'];
+    // Normalize locale: convert pt_BR to pt-BR, en_US to en-US, etc.
+    const normalized = i18nLocale.replace('_', '-');
+    return LOCALE_MAP[normalized] || LOCALE_MAP['en'];
 };
 
 // Get user timezone from page props or default to browser timezone
@@ -213,7 +217,7 @@ export function useDateTime() {
                 day_ago: '1 dzień temu',
                 days_ago: (n) => `${n} dni temu`,
             },
-            'pt_BR': {
+            'pt-BR': {
                 just_now: 'agora mesmo',
                 minute_ago: 'há 1 minuto',
                 minutes_ago: (n) => `há ${n} minutos`,
@@ -314,7 +318,7 @@ export function useDateTime() {
                 afternoon: 'Dzień dobry',
                 evening: 'Dobry wieczór',
             },
-            'pt_BR': {
+            'pt-BR': {
                 morning: 'Bom dia',
                 afternoon: 'Boa tarde',
                 evening: 'Boa noite',

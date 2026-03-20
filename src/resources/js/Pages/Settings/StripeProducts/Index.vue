@@ -57,7 +57,9 @@ const currencies = [
 // Helpers
 function formatPrice(amount, currency) {
     const value = amount / 100;
-    return new Intl.NumberFormat(locale.value, {
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Intl.NumberFormat(normalizedLocale, {
         style: "currency",
         currency: currency,
     }).format(value);
@@ -65,7 +67,9 @@ function formatPrice(amount, currency) {
 
 function formatDateTime(dateString) {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleString(locale.value);
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Date(dateString).toLocaleString(normalizedLocale);
 }
 
 // Modal Actions

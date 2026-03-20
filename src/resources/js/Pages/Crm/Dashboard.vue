@@ -17,7 +17,9 @@ const props = defineProps({
 
 // Format currency
 const formatCurrency = (value, currency = "PLN") => {
-    return new Intl.NumberFormat(locale.value, {
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Intl.NumberFormat(normalizedLocale, {
         style: "currency",
         currency: currency,
     }).format(value);

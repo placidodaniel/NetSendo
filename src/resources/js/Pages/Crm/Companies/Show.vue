@@ -60,7 +60,9 @@ const formatDate = (date) => {
 
 // Format currency
 const formatCurrency = (value) => {
-    return new Intl.NumberFormat(locale.value, {
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Intl.NumberFormat(normalizedLocale, {
         style: "currency",
         currency: "PLN",
     }).format(value || 0);

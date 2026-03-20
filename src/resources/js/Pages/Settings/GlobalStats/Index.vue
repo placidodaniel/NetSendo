@@ -89,7 +89,9 @@ watch([selectedYear, selectedMonth], ([year, month]) => {
 
 // Format numbers
 const formatNumber = (n) => {
-    return new Intl.NumberFormat(locale.value).format(n || 0);
+    // Normalize locale: pt_BR -> pt-BR for Intl compatibility
+    const normalizedLocale = locale.value.replace('_', '-');
+    return new Intl.NumberFormat(normalizedLocale).format(n || 0);
 };
 
 // Calculate max value for chart scaling

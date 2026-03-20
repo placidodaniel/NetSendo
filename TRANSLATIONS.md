@@ -1,41 +1,41 @@
-# Translation Instructions for Agents
+# Instruções de Tradução para Agentes
 
-This document defines the standard procedure for handling translations in the NetSendo project. **All Agents must follow these instructions.**
+Este documento define o procedimento padrão para manipulação de traduções no projeto NetSendo. **Todos os Agentes devem seguir estas instruções.**
 
-## 1. Source of Truth
+## 1. Fonte de Verdade
 
-The frontend application (Vue.js/Inertia) uses **JSON** files for translations.
-**DO NOT** rely solely on PHP translation files (`src/lang/*`) for frontend text, as they are not automatically synchronized.
+A aplicação frontend (Vue.js/Inertia) usa arquivos **JSON** para traduções.
+**NÃO** dependa apenas dos arquivos de tradução PHP (`src/lang/*`) para texto do frontend, pois eles não são sincronizados automaticamente.
 
-- **Location**: `src/resources/js/locales/`
-- **Files**:
-  - `pl.json` (Polish - Native/Default)
-  - `en.json` (English)
-  - `es.json` (Spanish)
-  - `de.json` (German)
-  - `pt_BR.json` (Portuguese - Brazil)
+- **Localização**: `src/resources/js/locales/`
+- **Arquivos**:
+  - `pl.json` (Polonês - Nativo/Padrão)
+  - `en.json` (Inglês)
+  - `es.json` (Espanhol)
+  - `de.json` (Alemão)
+  - `pt_BR.json` (Português Brasileiro)
 
-## 2. Supported Languages
+## 2. Idiomas Suportados
 
-| Code | Language | Role              |
-| :--- | :------- | :---------------- |
-| `pl` | Polish   | Source / Default  |
-| `en` | English  | Primary Secondary |
-| `es` | Spanish  | Required          |
-| `de` | German   | Required          |
-| `pt_BR` | Portuguese (Brazil) | Required          |
+| Código | Idioma   | Função              |
+| :----- | :------- | :------------------ |
+| `pl`   | Polonês  | Fonte / Padrão      |
+| `en`   | Inglês   | Secundário Primário |
+| `es`   | Espanhol | Obrigatório        |
+| `de`   | Alemão   | Obrigatório        |
+| `pt_BR`| Português Brasileiro | Optional/Novo |
 
-## 3. Workflow for Adding Translations
+## 3. Fluxo de Trabalho para Adicionar Traduções
 
-When adding new features or text, follow this strict process:
+Ao adicionar novos recursos ou texto, siga este processo rigoroso:
 
-### Step 1: Add to Source (PL & EN)
+### Passo 1: Adicionar à Fonte (PL & EN)
 
-Current Best Practice is to manually add the new keys to `pl.json` and `en.json`.
-Ensure the structure is logical and nested (e.g., `crm.task.new` instead of just `new_task`).
+A melhor prática atual é adicionar manualmente as novas chaves em `pl.json` e `en.json`.
+Garanta que a estrutura seja lógica e aninhada (ex: `crm.task.new` ao invés de apenas `new_task`).
 
 ```json
-// Example addition to pl.json
+// Exemplo de adição em pl.json
 "crm": {
     "task": {
         "new": "Nowe zadanie"
@@ -43,29 +43,39 @@ Ensure the structure is logical and nested (e.g., `crm.task.new` instead of just
 }
 ```
 
-### Step 2: Translate to Support Languages (ES & DE)
+### Passo 2: Traduzir para Idiomas Suportados (ES, DE, PT_BR)
 
-You **MUST** translate the new keys to Spanish (`es.json`) and German (`de.json`).
-Do not leave them in English or empty.
+Você **DEVE** traduzir as novas chaves para Espanhol (`es.json`), Alemão (`de.json`) e Português Brasileiro (`pt_BR.json`).
+Não as deixe em inglês ou vazias.
 
-### Step 3: Frontend Implementation
+### Passo 3: Implementação no Frontend
 
-Use the Vue I18n `$t` function. Always provide a default string (usually Polish) as the second argument for fallback/readability during development.
+Use a função Vue I18n `$t`. Sempre forneça uma string padrão (geralmente Polonês) como segundo argumento para fallback/leitura durante o desenvolvimento.
 
 ```javascript
-// Preferred usage
+// Uso preferencial
 $t("crm.task.new", "Nowe zadanie");
 ```
 
-## 4. Verification
+## 4. Verificação
 
-Before completing a task:
+Antes de completar uma tarefa:
 
-1.  **Check Key Existence**: Verify that the new keys exist in **ALL 5** JSON files.
-2.  **Check Syntax**: Ensure valid JSON (no trailing commas, properly closed braces).
-3.  **Visual Verification**: If possible, verify the text appears correctly in the UI.
+1.  **Verificar Existência das Chaves**: Verifique que as novas chaves existem em **TODOS OS** arquivos JSON relevantes.
+2.  **Verificar Sintaxe**: Garanta JSON válido (sem vírgulas à esquerda, chaves fechadas corretamente).
+3.  **Verificação Visual**: Se possível, verifique se o texto aparece corretamente na interface.
 
-## 5. Backend Translations (Emails/API)
+## 5. Traduções de Backend (E-mails/API)
 
-For emails or backend-generated messages, use the Laravel PHP files in `src/lang/`.
-_Note: If a string is used in both Frontend and Backend, it must be added to BOTH the JSON files and the PHP files._
+Para e-mails ou mensagens geradas pelo backend, use os arquivos PHP do Laravel em `src/lang/`.
+_Obs: Se uma string for usada tanto no Frontend quanto no Backend, ela deve ser adicionada TANTO aos arquivos JSON quanto aos arquivos PHP._
+
+## 6. Nota Importante sobre Locale
+
+Ao usar `Intl.NumberFormat` ou `toLocaleString()`, sempre normalize o locale de `pt_BR` para `pt-BR` (hífen ao invés de underscore) para compatibilidade com a API Intl do JavaScript.
+
+Exemplo de normalização:
+```javascript
+const normalizedLocale = locale.value.replace('_', '-');
+new Intl.NumberFormat(normalizedLocale, { ... });
+```
