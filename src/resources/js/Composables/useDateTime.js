@@ -6,6 +6,7 @@ const LOCALE_MAP = {
     'de': 'de-DE',
     'es': 'es-ES',
     'pl': 'pl-PL',
+    'pt_BR': 'pt-BR',
 };
 
 /**
