@@ -28,7 +28,7 @@ export function setupI18n(locale = 'en') {
             de,
             es,
             pl,
-            pt_BR,
+            'pt-BR': pt_BR, // chave com hífen
         },
         // Suppress missing translation warnings in production
         missingWarn: import.meta.env.DEV,
