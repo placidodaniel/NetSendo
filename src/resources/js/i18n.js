@@ -19,18 +19,20 @@ import pt_BR from './locales/pt_BR.json';
  * @returns {I18n} Configured i18n instance
  */
 export function setupI18n(locale = 'en') {
+    // Normalize locale code (e.g., convert 'pt_BR' to 'pt-BR')
+    const normalizedLocale = locale.replace('_', '-');
+
     return createI18n({
-        legacy: false, // Use Composition API mode
-        locale: locale,
+        legacy: false,
+        locale: normalizedLocale,
         fallbackLocale: 'en',
         messages: {
             en,
             de,
             es,
             pl,
-            'pt-BR': pt_BR, // chave com hífen
+            'pt-BR': pt_BR,
         },
-        // Suppress missing translation warnings in production
         missingWarn: import.meta.env.DEV,
         fallbackWarn: import.meta.env.DEV,
     });
